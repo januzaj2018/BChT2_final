@@ -1,0 +1,17 @@
+{
+  "extends": "solhint:recommended",
+  "rules": {
+    "code-complexity": ["warn", 12],
+    "const-name-snakecase": "warn",
+    "func-name-mixedcase": "warn",
+    "func-order": "warn",
+    "mark-callable-contracts": "off",
+    "no-inline-assembly": "warn",
+    "not-rely-on-time": "warn",
+    "reason-string": ["warn", { "minLength": 32 }],
+    "state-visibility": "error",
+    "var-name-mixedcase": "warn",
+    "check-send-result": "error",
+    "no-uninitialized-vars": "error"
+  }
+}
