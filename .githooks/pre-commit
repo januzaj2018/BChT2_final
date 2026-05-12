@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Pre-commit hook: Solidity code formatting and linting
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check if forge is installed
+if ! command -v forge &> /dev/null; then
+    echo "ERROR: forge not found. Please install Foundry"
+    exit 1
+fi
+
+# Check Solidity formatting
+echo "Checking Solidity formatting..."
+if ! forge fmt --check; then
+    echo "ERROR: Formatting check failed. Run: forge fmt"
+    exit 1
+fi
+
+# Run solhint if available
+if command -v solhint &> /dev/null; then
+    echo "Running solhint..."
+    solhint 'src/**/*.sol' || true
+fi
+
+echo "Pre-commit checks passed"
