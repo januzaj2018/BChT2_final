@@ -33,10 +33,7 @@ contract GameAMM is ERC20, ReentrancyGuard {
         if (_totalSupply == 0) {
             shares = Math.sqrt(amountX * amountY);
         } else {
-            shares = Math.min(
-                (amountX * _totalSupply) / reserveX,
-                (amountY * _totalSupply) / reserveY
-            );
+            shares = Math.min((amountX * _totalSupply) / reserveX, (amountY * _totalSupply) / reserveY);
         }
 
         require(shares > 0, "Insufficient shares minted");
@@ -63,14 +60,17 @@ contract GameAMM is ERC20, ReentrancyGuard {
         emit LiquidityRemoved(msg.sender, amountX, amountY, shares);
     }
 
-    function swap(address tokenIn, uint256 amountIn, uint256 minAmountOut) external nonReentrant returns (uint256 amountOut) {
+    function swap(address tokenIn, uint256 amountIn, uint256 minAmountOut)
+        external
+        nonReentrant
+        returns (uint256 amountOut)
+    {
         require(tokenIn == address(TOKEN_X) || tokenIn == address(TOKEN_Y), "Invalid token");
         require(amountIn > 0, "Invalid input amount");
 
         bool isX = tokenIn == address(TOKEN_X);
-        (IERC20 _tokenIn, IERC20 _tokenOut, uint256 _reserveIn, uint256 _reserveOut) = isX 
-            ? (TOKEN_X, TOKEN_Y, reserveX, reserveY) 
-            : (TOKEN_Y, TOKEN_X, reserveY, reserveX);
+        (IERC20 _tokenIn, IERC20 _tokenOut, uint256 _reserveIn, uint256 _reserveOut) =
+            isX ? (TOKEN_X, TOKEN_Y, reserveX, reserveY) : (TOKEN_Y, TOKEN_X, reserveY, reserveX);
 
         _tokenIn.safeTransferFrom(msg.sender, address(this), amountIn);
 

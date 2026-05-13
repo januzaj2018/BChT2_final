@@ -17,7 +17,14 @@ contract GameItem is ERC1155, AccessControl, Pausable {
     event ItemMinted(address indexed to, uint256 indexed tokenId, uint256 amount);
     event ItemBurned(address indexed from, uint256 indexed tokenId, uint256 amount);
     event ItemUriUpdated(uint256 indexed tokenId, string newUri);
-    event ItemCrafted(uint256 indexed recipeId, address indexed user, uint256[] inputIds, uint256[] inputAmounts, uint256 outputId, uint256 outputAmount);
+    event ItemCrafted(
+        uint256 indexed recipeId,
+        address indexed user,
+        uint256[] inputIds,
+        uint256[] inputAmounts,
+        uint256 outputId,
+        uint256 outputAmount
+    );
 
     struct Recipe {
         uint256[] inputIds;
@@ -35,51 +42,41 @@ contract GameItem is ERC1155, AccessControl, Pausable {
         _grantRole(MINTER_ROLE, msg.sender);
         _grantRole(BURNER_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
-        
+
         // Initialize with 10 fungible crafting materials (IDs 1-10)
         for (uint256 i = 1; i <= 10; i++) {
-            _mint(msg.sender, i, 1_000_000 * 10**18, "");
+            _mint(msg.sender, i, 1_000_000 * 10 ** 18, "");
         }
         itemIdCounter = 11;
     }
 
-    function mint(
-        address to,
-        uint256 tokenId,
-        uint256 amount,
-        bytes memory data
-    ) external onlyRole(MINTER_ROLE) whenNotPaused {
+    function mint(address to, uint256 tokenId, uint256 amount, bytes memory data)
+        external
+        onlyRole(MINTER_ROLE)
+        whenNotPaused
+    {
         require(to != address(0), "Invalid address");
         require(amount > 0, "Amount must be > 0");
         _mint(to, tokenId, amount, data);
         emit ItemMinted(to, tokenId, amount);
     }
 
-    function mintBatch(
-        address to,
-        uint256[] memory ids,
-        uint256[] memory amounts,
-        bytes memory data
-    ) external onlyRole(MINTER_ROLE) whenNotPaused {
+    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
+        external
+        onlyRole(MINTER_ROLE)
+        whenNotPaused
+    {
         require(to != address(0), "Invalid address");
         _mintBatch(to, ids, amounts, data);
     }
 
-    function burn(
-        address from,
-        uint256 tokenId,
-        uint256 amount
-    ) external onlyRole(BURNER_ROLE) {
+    function burn(address from, uint256 tokenId, uint256 amount) external onlyRole(BURNER_ROLE) {
         require(balanceOf(from, tokenId) >= amount, "Insufficient balance");
         _burn(from, tokenId, amount);
         emit ItemBurned(from, tokenId, amount);
     }
 
-    function burnBatch(
-        address from,
-        uint256[] memory ids,
-        uint256[] memory amounts
-    ) external onlyRole(BURNER_ROLE) {
+    function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) external onlyRole(BURNER_ROLE) {
         _burnBatch(from, ids, amounts);
     }
 
@@ -108,14 +105,10 @@ contract GameItem is ERC1155, AccessControl, Pausable {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(inputIds.length == inputAmounts.length, "Inputs length mismatch");
         require(inputIds.length > 0, "No inputs provided");
-        
+
         recipeCount++;
         recipes[recipeCount] = Recipe({
-            inputIds: inputIds,
-            inputAmounts: inputAmounts,
-            outputId: outputId,
-            outputAmount: outputAmount,
-            exists: true
+            inputIds: inputIds, inputAmounts: inputAmounts, outputId: outputId, outputAmount: outputAmount, exists: true
         });
     }
 
@@ -131,15 +124,12 @@ contract GameItem is ERC1155, AccessControl, Pausable {
         // Mint output
         _mint(msg.sender, recipe.outputId, recipe.outputAmount, "");
 
-        emit ItemCrafted(recipeId, msg.sender, recipe.inputIds, recipe.inputAmounts, recipe.outputId, recipe.outputAmount);
+        emit ItemCrafted(
+            recipeId, msg.sender, recipe.inputIds, recipe.inputAmounts, recipe.outputId, recipe.outputAmount
+        );
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC1155, AccessControl)
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC1155, AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }
