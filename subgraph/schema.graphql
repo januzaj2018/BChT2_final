@@ -1,0 +1,32 @@
+type GameItem @entity {
+  id: ID!
+  tokenId: BigInt!
+  owner: Bytes!
+  balance: BigInt!
+}
+
+type AMMLiquidity @entity {
+  id: ID!
+  user: Bytes!
+  lpAmount: BigInt!
+  reserveX: BigInt!
+  reserveY: BigInt!
+}
+
+type Swap @entity {
+  id: ID!
+  user: Bytes!
+  tokenIn: Bytes!
+  amountIn: BigInt!
+  tokenOut: Bytes!
+  amountOut: BigInt!
+  timestamp: BigInt!
+}
+
+type Craft @entity {
+  id: ID!
+  user: Bytes!
+  recipeId: BigInt!
+  inputs: [BigInt!]!
+  outputs: BigInt!
+}
