@@ -52,3 +52,46 @@ dataSources:
         - event: Swap(indexed address,indexed address,uint256,uint256)
           handler: handleSwap
       file: ./src/mappings.ts
+  - kind: ethereum
+    name: RentalVault
+    network: arbitrum-sepolia
+    source:
+      address: "0x0000000000000000000000000000000000000000"
+      abi: RentalVault
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - VaultDeposit
+      abis:
+        - name: RentalVault
+          file: ./abis/RentalVault.json
+      eventHandlers:
+        - event: NFTDeposited(indexed address,uint256,uint256,uint256)
+          handler: handleNFTDeposited
+      file: ./src/mappings.ts
+  - kind: ethereum
+    name: GameGovernor
+    network: arbitrum-sepolia
+    source:
+      address: "0x0000000000000000000000000000000000000000"
+      abi: GameGovernor
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Proposal
+        - Vote
+      abis:
+        - name: GameGovernor
+          file: ./abis/GameGovernor.json
+      eventHandlers:
+        - event: ProposalCreated(uint256,address,address[],uint256[],string[],bytes[],uint256,uint256,string)
+          handler: handleProposalCreated
+        - event: VoteCast(indexed address,uint256,uint8,uint256,string)
+          handler: handleVoteCast
+      file: ./src/mappings.ts

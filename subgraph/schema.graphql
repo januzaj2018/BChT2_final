@@ -30,3 +30,34 @@ type Craft @entity {
   inputs: [BigInt!]!
   outputs: BigInt!
 }
+
+type VaultDeposit @entity {
+  id: ID!
+  user: Bytes!
+  tokenId: BigInt!
+  amount: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+}
+
+type Proposal @entity {
+  id: ID!
+  proposer: Bytes!
+  targets: [Bytes!]!
+  values: [BigInt!]!
+  signatures: [String!]!
+  calldatas: [Bytes!]!
+  startBlock: BigInt!
+  endBlock: BigInt!
+  description: String!
+  status: String!
+}
+
+type Vote @entity {
+  id: ID!
+  voter: Bytes!
+  proposalId: BigInt!
+  support: Int!
+  weight: BigInt!
+  reason: String!
+}

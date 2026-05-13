@@ -118,4 +118,77 @@ contract GameAMMTest is Test {
 
         assertApproxEqAbs(amm.getAmountOut(100 * 10 ** 18, true), expectedOut, 10 ** 15);
     }
+
+    function testSwapY() public {
+        vm.prank(user1);
+        amm.addLiquidity(10_000 * 10 ** 18, 10_000 * 10 ** 18);
+
+        vm.startPrank(user2);
+        uint256 amountIn = 100 * 10 ** 18;
+        uint256 expectedOut = amm.getAmountOut(amountIn, false);
+
+        uint256 initialBalX = tokenX.balanceOf(user2);
+
+        uint256 amountOut = amm.swap(address(tokenY), amountIn, expectedOut);
+
+        assertEq(amountOut, expectedOut);
+        assertEq(tokenX.balanceOf(user2), initialBalX + amountOut);
+        vm.stopPrank();
+    }
+
+    function testGetAmountOutX() public {
+        vm.prank(user1);
+        amm.addLiquidity(10_000, 10_000);
+        uint256 out = amm.getAmountOut(100, true);
+        // (10000 * 99) / (10000 + 99) = 990000 / 10099 = 98.02...
+        assertTrue(out > 0);
+    }
+
+    function testGetAmountOutY() public {
+        vm.prank(user1);
+        amm.addLiquidity(10_000, 10_000);
+        uint256 out = amm.getAmountOut(100, false);
+        assertTrue(out > 0);
+    }
+
+    function testSwapZeroInputReverts() public {
+        vm.prank(user2);
+        vm.expectRevert("Invalid input amount");
+        amm.swap(address(tokenX), 0, 0);
+    }
+
+    function testSwapInvalidTokenReverts() public {
+        vm.prank(user2);
+        vm.expectRevert("Invalid token");
+        amm.swap(address(0x123), 100, 0);
+    }
+
+    function testRemoveLiquidityZeroReverts() public {
+        vm.prank(user2);
+        vm.expectRevert("Invalid shares amount");
+        amm.removeLiquidity(0);
+    }
+
+    function testAddLiquidityInitialShares() public {
+        vm.startPrank(user1);
+        uint256 shares = amm.addLiquidity(100, 400);
+        assertEq(shares, 200); // sqrt(100 * 400) = 200
+        vm.stopPrank();
+    }
+
+    function testAddLiquidityInsufficientX() public {
+        vm.startPrank(user2);
+        tokenX.transfer(address(3), tokenX.balanceOf(user2) - 50); // Leave only 50
+        vm.expectRevert();
+        amm.addLiquidity(100, 100);
+        vm.stopPrank();
+    }
+
+    function testAddLiquidityInsufficientY() public {
+        vm.startPrank(user2);
+        tokenY.transfer(address(3), tokenY.balanceOf(user2) - 50); // Leave only 50
+        vm.expectRevert();
+        amm.addLiquidity(100, 100);
+        vm.stopPrank();
+    }
 }
