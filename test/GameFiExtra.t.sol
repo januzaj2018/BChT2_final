@@ -35,7 +35,7 @@ contract GameFiExtraTest is Test {
         token = new GameToken();
         item = new GameItem();
 
-        mockAggregator = new MockAggregatorV3(2000 * 10**8, 8); // $2000 ETH
+        mockAggregator = new MockAggregatorV3(2000 * 10 ** 8, 8); // $2000 ETH
         feed = new PriceFeed(address(mockAggregator));
 
         mockCoordinator = new MockVRFCoordinatorV2();
@@ -44,18 +44,18 @@ contract GameFiExtraTest is Test {
         loot.grantRole(loot.OPERATOR_ROLE(), admin);
 
         vault = new RentalVault(token, item, 11); // Vault for item ID 11
-        
+
         // Proper initialization: deposit some assets to get initial shares
-        token.mint(admin, 1000 * 10**18);
-        token.approve(address(vault), 1000 * 10**18);
-        vault.deposit(1000 * 10**18, admin);
+        token.mint(admin, 1000 * 10 ** 18);
+        token.approve(address(vault), 1000 * 10 ** 18);
+        vault.deposit(1000 * 10 ** 18, admin);
 
         // Setup Governance
         address[] memory proposers = new address[](1);
         address[] memory executors = new address[](1);
         timelock = new GameTimelock(2 days, proposers, executors, admin);
         governor = new GameGovernor(token, timelock);
-        
+
         // Setup timelock roles
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0)); // Anyone
@@ -66,7 +66,7 @@ contract GameFiExtraTest is Test {
 
     // --- PriceFeed Tests ---
     function testPriceFeed() public {
-        assertEq(feed.getLatestPrice(), 2000 * 10**8);
+        assertEq(feed.getLatestPrice(), 2000 * 10 ** 8);
     }
 
     function testStalePrice() public {
@@ -87,11 +87,11 @@ contract GameFiExtraTest is Test {
         uint256 requestId = loot.requestLootDrop(user);
 
         uint256[] memory words = new uint256[](1);
-        words[0] = 12345;
-        
+        words[0] = 12_345;
+
         mockCoordinator.fulfillRandomWords(requestId, words);
 
-        uint256 expectedItemId = (12345 % 10) + 1;
+        uint256 expectedItemId = (12_345 % 10) + 1;
         assertEq(item.balanceOf(user, expectedItemId), 1);
     }
 
@@ -108,10 +108,10 @@ contract GameFiExtraTest is Test {
 
         vm.startPrank(user);
         item.setApprovalForAll(address(vault), true);
-        
+
         uint256 shares = vault.depositNFT(5);
-        assertEq(shares, 5 * 10**18);
-        assertEq(vault.balanceOf(user), 5 * 10**18);
+        assertEq(shares, 5 * 10 ** 18);
+        assertEq(vault.balanceOf(user), 5 * 10 ** 18);
         assertEq(item.balanceOf(user, 11), 5);
         vm.stopPrank();
     }
@@ -121,10 +121,10 @@ contract GameFiExtraTest is Test {
 
         vm.startPrank(user);
         vm.expectRevert("Cooldown active");
-        vault.withdrawNFT(1 * 10**18);
+        vault.withdrawNFT(1 * 10 ** 18);
 
         vm.warp(block.timestamp + 7 days);
-        vault.withdrawNFT(1 * 10**18);
+        vault.withdrawNFT(1 * 10 ** 18);
         assertEq(item.balanceOf(user, 11), 6);
         vm.stopPrank();
     }
@@ -134,9 +134,9 @@ contract GameFiExtraTest is Test {
 
         uint256 assetsBeforeYear = vault.totalAssets();
         vm.warp(block.timestamp + 365 days);
-        
+
         uint256 assetsAfterYear = vault.totalAssets();
-        assertApproxEqAbs(assetsAfterYear, assetsBeforeYear + 100.5 * 10**18, 1e16);
+        assertApproxEqAbs(assetsAfterYear, assetsBeforeYear + 100.5 * 10 ** 18, 1e16);
     }
 
     function testUpdateYield() public {
@@ -160,7 +160,7 @@ contract GameFiExtraTest is Test {
     function testTokenDelegation() public {
         vm.prank(admin);
         token.mint(user, 100);
-        
+
         vm.prank(user);
         token.delegate(user);
         assertEq(token.getVotes(user), 100);
@@ -169,7 +169,7 @@ contract GameFiExtraTest is Test {
     function testTokenTransfer() public {
         vm.prank(admin);
         token.mint(user, 100);
-        
+
         vm.prank(user);
         token.transfer(admin, 50);
         assertEq(token.balanceOf(user), 50);
@@ -185,10 +185,10 @@ contract GameFiExtraTest is Test {
 
     function testPropose() public {
         vm.prank(admin);
-        token.mint(user, 1000 * 10**18);
+        token.mint(user, 1000 * 10 ** 18);
         vm.prank(user);
         token.delegate(user);
-        
+
         vm.roll(block.number + 1);
 
         address[] memory targets = new address[](1);
@@ -201,16 +201,16 @@ contract GameFiExtraTest is Test {
 
         vm.prank(user);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
-        
+
         assertEq(uint256(governor.state(proposalId)), 0); // Pending
     }
 
     function testCastVote() public {
         vm.prank(admin);
-        token.mint(user, 1000 * 10**18);
+        token.mint(user, 1000 * 10 ** 18);
         vm.prank(user);
         token.delegate(user);
-        
+
         vm.roll(block.number + 1);
 
         address[] memory targets = new address[](1);
@@ -227,7 +227,7 @@ contract GameFiExtraTest is Test {
         // Wait for voting delay - need to roll blocks and warp
         uint256 delay = governor.votingDelay();
         vm.warp(block.timestamp + delay + 1);
-        vm.roll(block.number + delay + 1); 
+        vm.roll(block.number + delay + 1);
 
         assertEq(uint256(governor.state(proposalId)), 1); // Active
 

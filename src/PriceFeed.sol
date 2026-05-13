@@ -23,13 +23,8 @@ contract PriceFeed is Ownable {
      * Returns the latest price and reverts if it is stale.
      */
     function getLatestPrice() public view returns (int256) {
-        (
-            uint80 roundId,
-            int256 price,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        ) = priceFeed.latestRoundData();
+        (uint80 roundId, int256 price, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
+            priceFeed.latestRoundData();
 
         require(updatedAt > 0, "Round not complete");
         require(updatedAt >= block.timestamp - HEARTBEAT, "Stale price");

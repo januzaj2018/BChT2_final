@@ -16,7 +16,7 @@ contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
 
     uint256 public lastYieldUpdate;
     uint256 public yieldRate = 1000; // 10% annual in basis points (simplified)
-    uint256 public constant BASIS_POINTS = 10000;
+    uint256 public constant BASIS_POINTS = 10_000;
     uint256 public constant SECONDS_PER_YEAR = 365 days;
 
     mapping(address => uint256) public depositTimestamp;
@@ -26,11 +26,11 @@ contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
     event NFTDeposited(address indexed user, uint256 tokenId, uint256 amount, uint256 shares);
     event NFTWithdrawn(address indexed user, uint256 tokenId, uint256 amount, uint256 shares);
 
-    constructor(
-        IERC20 _asset,
-        IERC1155 _gameItem,
-        uint256 _targetTokenId
-    ) ERC4626(_asset) ERC20("Game Rental Shares", "GRS") Ownable(msg.sender) {
+    constructor(IERC20 _asset, IERC1155 _gameItem, uint256 _targetTokenId)
+        ERC4626(_asset)
+        ERC20("Game Rental Shares", "GRS")
+        Ownable(msg.sender)
+    {
         gameItem = _gameItem;
         targetTokenId = _targetTokenId;
         lastYieldUpdate = block.timestamp;
@@ -42,9 +42,9 @@ contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
      */
     function totalAssets() public view override returns (uint256) {
         uint256 tokenBalance = IERC20(asset()).balanceOf(address(this));
-        uint256 nftValue = gameItem.balanceOf(address(this), targetTokenId) * 10**18;
+        uint256 nftValue = gameItem.balanceOf(address(this), targetTokenId) * 10 ** 18;
         uint256 baseAssets = tokenBalance + nftValue;
-        
+
         uint256 timeElapsed = block.timestamp - lastYieldUpdate;
         if (timeElapsed == 0) return baseAssets;
 
@@ -60,12 +60,12 @@ contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
 
     function depositNFT(uint256 amount) external nonReentrant returns (uint256 shares) {
         require(amount > 0, "Amount must be > 0");
-        
-        // Determine share amount before transfer. 
+
+        // Determine share amount before transfer.
         // For simplicity, 1 NFT = 10**18 "virtual assets"
-        uint256 virtualAssets = amount * 10**18;
+        uint256 virtualAssets = amount * 10 ** 18;
         shares = previewDeposit(virtualAssets);
-        
+
         // Transfer NFT to vault
         gameItem.safeTransferFrom(msg.sender, address(this), targetTokenId, amount, "");
 
@@ -79,7 +79,7 @@ contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
         require(shares > 0, "Shares must be > 0");
         require(block.timestamp >= depositTimestamp[msg.sender] + COOLDOWN, "Cooldown active");
 
-        amount = (previewRedeem(shares)) / 10**18;
+        amount = (previewRedeem(shares)) / 10 ** 18;
         require(amount > 0, "Insufficient shares for 1 NFT");
 
         _burn(msg.sender, shares);
