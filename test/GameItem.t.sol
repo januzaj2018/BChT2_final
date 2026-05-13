@@ -18,7 +18,7 @@ contract GameItemTest is Test {
 
     function testInitialization() public {
         assertEq(gameItem.itemIdCounter(), 11);
-        assertEq(gameItem.balanceOf(admin, 1), 1_000_000 * 10**18);
+        assertEq(gameItem.balanceOf(admin, 1), 1_000_000 * 10 ** 18);
     }
 
     function testMint() public {
@@ -42,7 +42,7 @@ contract GameItemTest is Test {
     function testBurn() public {
         vm.prank(admin);
         gameItem.mint(user1, 11, 100, "");
-        
+
         vm.prank(admin);
         gameItem.burn(user1, 11, 50);
         assertEq(gameItem.balanceOf(user1, 11), 50);
@@ -58,15 +58,15 @@ contract GameItemTest is Test {
         vm.prank(admin);
         gameItem.pause();
         assertTrue(gameItem.paused());
-        
+
         vm.expectRevert();
         vm.prank(admin);
         gameItem.mint(user1, 11, 100, "");
-        
+
         vm.prank(admin);
         gameItem.unpause();
         assertFalse(gameItem.paused());
-        
+
         vm.prank(admin);
         gameItem.mint(user1, 11, 100, "");
         assertEq(gameItem.balanceOf(user1, 11), 100);
@@ -76,22 +76,22 @@ contract GameItemTest is Test {
         uint256[] memory inputIds = new uint256[](2);
         inputIds[0] = 1;
         inputIds[1] = 2;
-        
+
         uint256[] memory inputAmounts = new uint256[](2);
         inputAmounts[0] = 10;
         inputAmounts[1] = 5;
-        
+
         vm.prank(admin);
         gameItem.addRecipe(inputIds, inputAmounts, 11, 1);
-        
+
         vm.prank(admin);
         gameItem.safeTransferFrom(admin, user1, 1, 10, "");
         vm.prank(admin);
         gameItem.safeTransferFrom(admin, user1, 2, 5, "");
-        
+
         vm.prank(user1);
         gameItem.craftItem(1);
-        
+
         assertEq(gameItem.balanceOf(user1, 11), 1);
         assertEq(gameItem.balanceOf(user1, 1), 0);
         assertEq(gameItem.balanceOf(user1, 2), 0);
@@ -108,10 +108,10 @@ contract GameItemTest is Test {
         inputIds[0] = 1;
         uint256[] memory inputAmounts = new uint256[](1);
         inputAmounts[0] = 10;
-        
+
         vm.prank(admin);
         gameItem.addRecipe(inputIds, inputAmounts, 11, 1);
-        
+
         vm.prank(user1);
         vm.expectRevert();
         gameItem.craftItem(1);
