@@ -20,8 +20,8 @@ lib/
 
 # Node
 node_modules/
-package-lock.json
-yarn.lock
+/package-lock.json
+/yarn.lock
 
 # Solidity
 *.sol.bak
