@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { BrowserProvider, Contract } from 'ethers';
 import BoxABI from './Box.json';
 import './index.css';
@@ -18,6 +18,7 @@ function App() {
         setAccount(accounts[0]);
         setStatus({ type: 'success', message: 'Wallet connected successfully!' });
       } catch (error) {
+        console.error(error);
         setStatus({ type: 'error', message: 'Failed to connect wallet.' });
       }
     } else {
