@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   useAccount, 
   useConnect, 
   useDisconnect, 
   useBalance, 
-  useReadContract, 
   useWriteContract, 
   useWaitForTransactionReceipt,
   WagmiProvider,
@@ -23,15 +22,11 @@ import {
   Coins, 
   RefreshCcw,
   LayoutDashboard,
-  ExternalLink,
-  ChevronRight
+  ExternalLink
 } from 'lucide-react';
 
-import GameTokenABI from './constants/GameToken.json';
 import GameAMMABI from './constants/GameAMM.json';
 import RentalVaultABI from './constants/RentalVault.json';
-import GameGovernorABI from './constants/GameGovernor.json';
-import GameItemABI from './constants/GameItem.json';
 
 import './index.css';
 
@@ -151,17 +146,18 @@ function SwapTab() {
 }
 
 function VaultTab() {
+  const { address } = useAccount();
   const [amount, setAmount] = useState('');
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const handleDeposit = () => {
-    if (!amount) return;
+    if (!amount || !address) return;
     writeContract({
       address: CONTRACTS.RentalVault,
       abi: RentalVaultABI,
       functionName: 'deposit',
-      args: [parseEther(amount), useAccount().address],
+      args: [parseEther(amount), address],
     });
   };
 

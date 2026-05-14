@@ -201,7 +201,7 @@ contract GameAMMTest is Test {
     function testSwapSameTokenReverts() public {
         vm.prank(user1);
         amm.addLiquidity(1000, 1000);
-        
+
         vm.prank(user2);
         vm.expectRevert("Invalid token");
         amm.swap(address(0), 100, 0);
@@ -210,9 +210,9 @@ contract GameAMMTest is Test {
     function testSwapInsufficientLiquidityReverts() public {
         vm.prank(user1);
         amm.addLiquidity(1000, 1000);
-        
+
         vm.startPrank(user2);
-        vm.expectRevert(); 
+        vm.expectRevert();
         amm.swap(address(tokenX), 1e25, 0);
         vm.stopPrank();
     }

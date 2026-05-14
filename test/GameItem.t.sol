@@ -194,7 +194,7 @@ contract GameItemTest is Test {
     function testBurnUnauthorized() public {
         vm.prank(admin);
         gameItem.mint(user1, 11, 100, "");
-        
+
         vm.prank(user2);
         vm.expectRevert();
         gameItem.burn(user1, 11, 50);
@@ -203,7 +203,7 @@ contract GameItemTest is Test {
     function testBurnMoreThanBalance() public {
         vm.prank(admin);
         gameItem.mint(user1, 11, 100, "");
-        
+
         vm.prank(admin);
         vm.expectRevert(); // Standard ERC1155 error
         gameItem.burn(user1, 11, 150);

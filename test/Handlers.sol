@@ -16,12 +16,7 @@ contract InvariantHandler is Test {
     ERC20 tokenX;
     ERC20 tokenY;
 
-    constructor(
-        GameAMM _amm,
-        RentalVault _vault,
-        GameToken _token,
-        GameItem _item
-    ) {
+    constructor(GameAMM _amm, RentalVault _vault, GameToken _token, GameItem _item) {
         amm = _amm;
         vault = _vault;
         token = _token;
@@ -57,7 +52,7 @@ contract InvariantHandler is Test {
         if (shares > 0) {
             vm.warp(block.timestamp + 8 days);
             // Fund the vault with enough tokens to cover yield
-            token.mint(address(vault), 1e30); 
+            token.mint(address(vault), 1e30);
             vault.withdraw(shares, address(this), address(this));
         }
     }

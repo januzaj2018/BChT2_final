@@ -24,7 +24,7 @@ contract InvariantsTest is Test, ERC1155Holder {
         tokenX = new MockERC20("X", "X");
         tokenY = new MockERC20("Y", "Y");
         amm = new GameAMM(address(tokenX), address(tokenY));
-        
+
         token = new GameToken();
         item = new GameItem();
         vault = new RentalVault(token, item, 1);
@@ -37,10 +37,10 @@ contract InvariantsTest is Test, ERC1155Holder {
         amm.addLiquidity(10e18, 10e18);
 
         handler = new InvariantHandler(amm, vault, token, item);
-        
+
         token.grantRole(token.MINTER_ROLE(), address(handler));
         token.grantRole(token.MINTER_ROLE(), address(this));
-        
+
         targetContract(address(handler));
     }
 
@@ -48,7 +48,7 @@ contract InvariantsTest is Test, ERC1155Holder {
         uint256 reserveX = amm.reserveX();
         uint256 reserveY = amm.reserveY();
         uint256 k = reserveX * reserveY;
-        
+
         // Initial k was 10e18 * 10e18 = 100e36
         assertTrue(k >= 100e36, "K-invariant decreased below initial");
     }
@@ -56,7 +56,7 @@ contract InvariantsTest is Test, ERC1155Holder {
     function invariant_vaultBalanceCorrect() public {
         uint256 totalShares = vault.totalSupply();
         uint256 totalAssets = vault.totalAssets();
-        
+
         // If shares > 0, assets must be > 0 (roughly)
         if (totalShares > 0) {
             assertTrue(totalAssets > 0, "Vault has shares but no assets");
@@ -67,7 +67,7 @@ contract InvariantsTest is Test, ERC1155Holder {
         uint256 totalSupply = amm.totalSupply();
         uint256 reserveX = amm.reserveX();
         uint256 reserveY = amm.reserveY();
-        
+
         if (totalSupply > 0) {
             assertTrue(reserveX > 0 && reserveY > 0, "AMM has supply but no reserves");
         }

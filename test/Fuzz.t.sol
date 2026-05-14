@@ -31,7 +31,7 @@ contract FuzzTest is Test, ERC1155Holder {
         tokenX = new MockERC20("X", "X");
         tokenY = new MockERC20("Y", "Y");
         amm = new GameAMM(address(tokenX), address(tokenY));
-        
+
         token = new GameToken();
         item = new GameItem();
         vault = new RentalVault(token, item, 1); // targetTokenId 1
@@ -51,7 +51,7 @@ contract FuzzTest is Test, ERC1155Holder {
         amm.addLiquidity(1e18, 1e18);
 
         vm.label(user, "User");
-        
+
         // Grant roles
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(vault));
@@ -88,7 +88,7 @@ contract FuzzTest is Test, ERC1155Holder {
         token.approve(address(vault), amount);
 
         uint256 shares = vault.deposit(amount, user);
-        
+
         assertEq(vault.balanceOf(user), shares);
         assertTrue(shares > 0);
         vm.stopPrank();
@@ -100,9 +100,9 @@ contract FuzzTest is Test, ERC1155Holder {
         token.mint(user, amount);
         vm.startPrank(user);
         token.delegate(user);
-        
+
         vm.roll(block.number + 1);
-        
+
         assertEq(token.getVotes(user), amount);
         vm.stopPrank();
     }
@@ -116,7 +116,7 @@ contract FuzzTest is Test, ERC1155Holder {
         vm.stopPrank();
 
         vm.warp(block.timestamp + 8 days);
-        
+
         vm.startPrank(user);
         uint256 assets = vault.redeem(shares, user, user);
         assertTrue(assets >= amount);
@@ -135,6 +135,7 @@ contract FuzzTest is Test, ERC1155Holder {
             assertApproxEqAbs(out, expected, 1);
         }
     }
+
     function testFuzzGameItemMint(uint256 amount) public {
         amount = bound(amount, 1, 1e18);
         vm.prank(address(this));
@@ -158,7 +159,7 @@ contract FuzzTest is Test, ERC1155Holder {
     }
 
     function testFuzzRentalVaultSetYieldRate(uint256 rate) public {
-        rate = bound(rate, 0, 10000);
+        rate = bound(rate, 0, 10_000);
         vm.prank(address(this));
         vault.setYieldRate(rate);
         assertEq(vault.yieldRate(), rate);

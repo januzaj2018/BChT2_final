@@ -268,7 +268,7 @@ contract GameFiExtraTest is Test {
         vm.startPrank(user);
         vm.warp(block.timestamp + 7 days);
         vm.expectRevert(); // Standard ERC20 burn error
-        vault.withdrawNFT(10 * 10**18);
+        vault.withdrawNFT(10 * 10 ** 18);
         vm.stopPrank();
     }
 
@@ -276,10 +276,10 @@ contract GameFiExtraTest is Test {
         vm.startPrank(admin);
         uint256 req1 = loot.requestLootDrop(user);
         uint256 req2 = loot.requestLootDrop(user);
-        
+
         (bool fulfilled1, bool exists1, address u1, uint256 w1) = loot.s_requests(req1);
         (bool fulfilled2, bool exists2, address u2, uint256 w2) = loot.s_requests(req2);
-        
+
         assertTrue(exists1 && exists2);
         assertFalse(fulfilled1 || fulfilled2);
         vm.stopPrank();
@@ -288,10 +288,10 @@ contract GameFiExtraTest is Test {
     function testLootVRFUnauthorizedFulfill() public {
         vm.prank(admin);
         uint256 requestId = loot.requestLootDrop(user);
-        
+
         uint256[] memory words = new uint256[](1);
         words[0] = 123;
-        
+
         vm.prank(user); // NOT coordinator
         vm.expectRevert();
         loot.rawFulfillRandomWords(requestId, words);
@@ -299,7 +299,7 @@ contract GameFiExtraTest is Test {
 
     function testGovernorQueueAndExecute() public {
         vm.prank(admin);
-        token.mint(user, 1000 * 10**18);
+        token.mint(user, 1000 * 10 ** 18);
         vm.prank(user);
         token.delegate(user);
         vm.roll(block.number + 1);
@@ -327,11 +327,11 @@ contract GameFiExtraTest is Test {
         vm.roll(block.number + governor.votingPeriod() + 1);
 
         governor.queue(targets, values, calldatas, keccak256(bytes(description)));
-        
+
         // Advance for timelock delay
         vm.warp(block.timestamp + timelock.getMinDelay() + 1);
         governor.execute(targets, values, calldatas, keccak256(bytes(description)));
-        
+
         assertEq(token.balanceOf(admin), 100);
     }
 
