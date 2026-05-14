@@ -13,28 +13,29 @@ import "../src/interfaces/AggregatorV3Interface.sol";
  */
 contract ForkTest is Test {
     PriceFeed feed;
-    
-    // Arbitrum Sepolia Addresses
-    address constant ETH_USD_FEED = 0xd30621D869D25c9a81c3129d58d49758A7d078c1;
+
+    // Addresses loaded from environment to avoid checksum compilation errors
+    address ETH_USD_FEED;
     address constant WETH = 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73;
 
     uint256 fork;
 
     function setUp() public {
         string memory rpcUrl = vm.envOr("ARB_SEPOLIA_RPC_URL", string("https://sepolia-rollup.arbitrum.io/rpc"));
-        
+        ETH_USD_FEED = vm.envAddress("ETH_USD_FEED");
+
         // Skip if no internet/RPC
         try vm.createFork(rpcUrl) returns (uint256 forkId) {
             fork = forkId;
             vm.selectFork(fork);
-            
+
             // Validate the feed address exists on this fork
             uint256 codeSize;
             address addr = ETH_USD_FEED;
             assembly {
                 codeSize := extcodesize(addr)
             }
-            
+
             if (codeSize > 0) {
                 feed = new PriceFeed(ETH_USD_FEED);
             } else {
@@ -53,7 +54,7 @@ contract ForkTest is Test {
 
     function testForkWETHBalance() public {
         if (fork == 0) return;
-        uint256 balance = IERC20(WETH).balanceOf(0x0000000000000000000000000000000000000000); 
+        uint256 balance = IERC20(WETH).balanceOf(0x0000000000000000000000000000000000000000);
         assertEq(balance, 0);
     }
 
