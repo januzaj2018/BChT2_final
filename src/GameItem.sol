@@ -105,6 +105,7 @@ contract GameItem is ERC1155, AccessControl, Pausable {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(inputIds.length == inputAmounts.length, "Inputs length mismatch");
         require(inputIds.length > 0, "No inputs provided");
+        require(outputAmount > 0, "Output amount must be > 0");
 
         recipeCount++;
         recipes[recipeCount] = Recipe({

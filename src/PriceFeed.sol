@@ -27,7 +27,7 @@ contract PriceFeed is Ownable {
             priceFeed.latestRoundData();
 
         require(updatedAt > 0, "Round not complete");
-        require(updatedAt >= block.timestamp - HEARTBEAT, "Stale price");
+        require(block.timestamp <= updatedAt + HEARTBEAT, "Stale price");
         require(price > 0, "Invalid price");
 
         return price;

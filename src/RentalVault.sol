@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+import "./GameToken.sol";
+
 contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -37,8 +39,8 @@ contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Total assets includes the underlying GameToken balance plus the value of deposited NFTs.
-     * For simplicity, each NFT is valued at 10**18 virtual assets (matching GameToken decimals).
+     * @dev Total assets includes the underlying GameToken balance plus the value of deposited NFTs,
+     * plus the accrued yield.
      */
     function totalAssets() public view override returns (uint256) {
         uint256 tokenBalance = IERC20(asset()).balanceOf(address(this));
@@ -48,21 +50,51 @@ contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
         uint256 timeElapsed = block.timestamp - lastYieldUpdate;
         if (timeElapsed == 0) return baseAssets;
 
-        uint256 yield = (baseAssets * yieldRate * timeElapsed) / (BASIS_POINTS * SECONDS_PER_YEAR);
+        uint256 yield = (totalSupply() * yieldRate * timeElapsed) / (BASIS_POINTS * SECONDS_PER_YEAR);
         return baseAssets + yield;
     }
 
-    function updateYield() public {
+    function syncYield() public {
+        uint256 timeElapsed = block.timestamp - lastYieldUpdate;
+        if (timeElapsed > 0 && totalSupply() > 0) {
+            uint256 yield = (totalSupply() * yieldRate * timeElapsed) / (BASIS_POINTS * SECONDS_PER_YEAR);
+            if (yield > 0) {
+                // Try to mint yield if vault has MINTER_ROLE
+                try GameToken(address(asset())).mint(address(this), yield) {} catch {}
+            }
+        }
         lastYieldUpdate = block.timestamp;
-        // In a real ERC4626, we'd need a way to actually have these assets.
-        // For this capstone, we assume the vault is "pre-funded" or mints rewards.
+    }
+
+    function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256) {
+        syncYield();
+        return super.deposit(assets, receiver);
+    }
+
+    function withdraw(uint256 assets, address receiver, address owner) public override nonReentrant returns (uint256) {
+        syncYield();
+        return super.withdraw(assets, receiver, owner);
+    }
+
+    function mint(uint256 shares, address receiver) public override nonReentrant returns (uint256) {
+        syncYield();
+        return super.mint(shares, receiver);
+    }
+
+    function redeem(uint256 shares, address receiver, address owner) public override nonReentrant returns (uint256) {
+        syncYield();
+        return super.redeem(shares, receiver, owner);
+    }
+
+    function updateYield() public {
+        syncYield();
     }
 
     function depositNFT(uint256 amount) external nonReentrant returns (uint256 shares) {
         require(amount > 0, "Amount must be > 0");
+        syncYield();
 
         // Determine share amount before transfer.
-        // For simplicity, 1 NFT = 10**18 "virtual assets"
         uint256 virtualAssets = amount * 10 ** 18;
         shares = previewDeposit(virtualAssets);
 
@@ -78,6 +110,7 @@ contract RentalVault is ERC4626, ERC1155Holder, Ownable, ReentrancyGuard {
     function withdrawNFT(uint256 shares) external nonReentrant returns (uint256 amount) {
         require(shares > 0, "Shares must be > 0");
         require(block.timestamp >= depositTimestamp[msg.sender] + COOLDOWN, "Cooldown active");
+        syncYield();
 
         amount = (previewRedeem(shares)) / 10 ** 18;
         require(amount > 0, "Insufficient shares for 1 NFT");
