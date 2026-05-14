@@ -29,3 +29,4 @@ node_modules/
 
 # OS
 Thumbs.db
+/lcov.info
