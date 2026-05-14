@@ -184,4 +184,47 @@ contract GameItemTest is Test {
         vm.expectRevert();
         gameItem.addRecipe(inputIds, inputAmounts, 11, 1);
     }
+
+    function testSetItemUriAdmin() public {
+        vm.prank(admin);
+        gameItem.setItemUri(1, "ipfs://new-base-uri/");
+        assertEq(gameItem.uri(1), "ipfs://new-base-uri/");
+    }
+
+    function testBurnUnauthorized() public {
+        vm.prank(admin);
+        gameItem.mint(user1, 11, 100, "");
+        
+        vm.prank(user2);
+        vm.expectRevert();
+        gameItem.burn(user1, 11, 50);
+    }
+
+    function testBurnMoreThanBalance() public {
+        vm.prank(admin);
+        gameItem.mint(user1, 11, 100, "");
+        
+        vm.prank(admin);
+        vm.expectRevert(); // Standard ERC1155 error
+        gameItem.burn(user1, 11, 150);
+    }
+
+    function testMintBatchUnauthorized() public {
+        uint256[] memory ids = new uint256[](1);
+        uint256[] memory amounts = new uint256[](1);
+        vm.prank(user1);
+        vm.expectRevert();
+        gameItem.mintBatch(user2, ids, amounts, "");
+    }
+
+    function testAddRecipeWithZeroAmountOutputReverts() public {
+        uint256[] memory inputIds = new uint256[](1);
+        inputIds[0] = 1;
+        uint256[] memory inputAmounts = new uint256[](1);
+        inputAmounts[0] = 1;
+
+        vm.prank(admin);
+        vm.expectRevert("Output amount must be > 0");
+        gameItem.addRecipe(inputIds, inputAmounts, 11, 0);
+    }
 }

@@ -140,7 +140,6 @@ contract GameAMMTest is Test {
         vm.prank(user1);
         amm.addLiquidity(10_000, 10_000);
         uint256 out = amm.getAmountOut(100, true);
-        // (10000 * 99) / (10000 + 99) = 990000 / 10099 = 98.02...
         assertTrue(out > 0);
     }
 
@@ -189,6 +188,41 @@ contract GameAMMTest is Test {
         tokenY.transfer(address(3), tokenY.balanceOf(user2) - 50); // Leave only 50
         vm.expectRevert();
         amm.addLiquidity(100, 100);
+        vm.stopPrank();
+    }
+
+    function testAddLiquidityZeroAmountReverts() public {
+        vm.startPrank(user1);
+        vm.expectRevert("Insufficient shares minted");
+        amm.addLiquidity(0, 100);
+        vm.stopPrank();
+    }
+
+    function testSwapSameTokenReverts() public {
+        vm.prank(user1);
+        amm.addLiquidity(1000, 1000);
+        
+        vm.prank(user2);
+        vm.expectRevert("Invalid token");
+        amm.swap(address(0), 100, 0);
+    }
+
+    function testSwapInsufficientLiquidityReverts() public {
+        vm.prank(user1);
+        amm.addLiquidity(1000, 1000);
+        
+        vm.startPrank(user2);
+        vm.expectRevert(); 
+        amm.swap(address(tokenX), 1e25, 0);
+        vm.stopPrank();
+    }
+
+    function testAddLiquidityRatioMismatch() public {
+        vm.startPrank(user1);
+        amm.addLiquidity(1000, 1000);
+        amm.addLiquidity(1000, 2000);
+        assertEq(amm.reserveX(), 2000);
+        assertEq(amm.reserveY(), 3000);
         vm.stopPrank();
     }
 }

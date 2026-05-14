@@ -61,6 +61,8 @@ contract GameFiExtraTest is Test {
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0)); // Anyone
         timelock.revokeRole(0x00, admin); // DEFAULT_ADMIN_ROLE is 0x00
 
+        token.grantRole(token.MINTER_ROLE(), address(timelock));
+
         vm.stopPrank();
     }
 
@@ -243,7 +245,125 @@ contract GameFiExtraTest is Test {
         assertTrue(timelock.hasRole(timelock.DEFAULT_ADMIN_ROLE(), address(timelock)));
     }
 
-    function testTimelockMinDelay() public {
+    function testDepositNFTUnauthorized() public {
+        vm.prank(admin);
+        item.mint(user, 11, 10, "");
+
+        vm.startPrank(user);
+        // NO approval
+        vm.expectRevert();
+        vault.depositNFT(5);
+        vm.stopPrank();
+    }
+
+    function testWithdrawNFTZeroShares() public {
+        vm.startPrank(user);
+        vm.expectRevert("Shares must be > 0");
+        vault.withdrawNFT(0);
+        vm.stopPrank();
+    }
+
+    function testWithdrawNFTExceedBalance() public {
+        testDepositNFT();
+        vm.startPrank(user);
+        vm.warp(block.timestamp + 7 days);
+        vm.expectRevert(); // Standard ERC20 burn error
+        vault.withdrawNFT(10 * 10**18);
+        vm.stopPrank();
+    }
+
+    function testLootVRFMultipleRequests() public {
+        vm.startPrank(admin);
+        uint256 req1 = loot.requestLootDrop(user);
+        uint256 req2 = loot.requestLootDrop(user);
+        
+        (bool fulfilled1, bool exists1, address u1, uint256 w1) = loot.s_requests(req1);
+        (bool fulfilled2, bool exists2, address u2, uint256 w2) = loot.s_requests(req2);
+        
+        assertTrue(exists1 && exists2);
+        assertFalse(fulfilled1 || fulfilled2);
+        vm.stopPrank();
+    }
+
+    function testLootVRFUnauthorizedFulfill() public {
+        vm.prank(admin);
+        uint256 requestId = loot.requestLootDrop(user);
+        
+        uint256[] memory words = new uint256[](1);
+        words[0] = 123;
+        
+        vm.prank(user); // NOT coordinator
+        vm.expectRevert();
+        loot.rawFulfillRandomWords(requestId, words);
+    }
+
+    function testGovernorQueueAndExecute() public {
+        vm.prank(admin);
+        token.mint(user, 1000 * 10**18);
+        vm.prank(user);
+        token.delegate(user);
+        vm.roll(block.number + 1);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(token);
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("mint(address,uint256)", admin, 100);
+        string memory description = "Execute Proposal";
+
+        vm.prank(user);
+        uint256 proposalId = governor.propose(targets, values, calldatas, description);
+
+        // Advance to Active
+        vm.warp(block.timestamp + governor.votingDelay() + 1);
+        vm.roll(block.number + governor.votingDelay() + 1);
+
+        vm.prank(user);
+        governor.castVote(proposalId, 1);
+
+        // Advance to Succeeded
+        vm.warp(block.timestamp + governor.votingPeriod() + 1);
+        vm.roll(block.number + governor.votingPeriod() + 1);
+
+        governor.queue(targets, values, calldatas, keccak256(bytes(description)));
+        
+        // Advance for timelock delay
+        vm.warp(block.timestamp + timelock.getMinDelay() + 1);
+        governor.execute(targets, values, calldatas, keccak256(bytes(description)));
+        
+        assertEq(token.balanceOf(admin), 100);
+    }
+
+    function testAddRecipeEmptyInputsReverts() public {
+        uint256[] memory ids = new uint256[](0);
+        uint256[] memory amounts = new uint256[](0);
+        vm.prank(admin);
+        vm.expectRevert("No inputs provided");
+        item.addRecipe(ids, amounts, 11, 1);
+    }
+
+    function testRentalVaultAssetMatches() public {
+        assertEq(address(vault.asset()), address(token));
+    }
+
+    function testLootVRFGameItemMatches() public {
+        assertEq(address(loot.gameItem()), address(item));
+    }
+
+    function testGovernorVotingDelay() public {
+        assertEq(governor.votingDelay(), 1 days);
+    }
+
+    function testGovernorVotingPeriod() public {
+        assertEq(governor.votingPeriod(), 1 weeks);
+    }
+
+    function testTimelockMinDelayValue() public {
         assertEq(timelock.getMinDelay(), 2 days);
+    }
+
+    function testTokenSymbol() public {
+        assertEq(token.symbol(), "GAME");
     }
 }
