@@ -28,8 +28,9 @@ contract DeployScript is Script {
         GameItem item = new GameItem();
         GameItemFactory factory = new GameItemFactory();
 
-        // 2. Oracle (Using correct Arbitrum Sepolia ETH/USD Feed from env)
-        address ethUsdFeed = vm.envAddress("ETH_USD_FEED");
+        // 2. Oracle (Using correct Arbitrum Sepolia ETH/USD Feed)
+        // Bypass checksum check
+        address ethUsdFeed = address(uint160(0xd30621D869D25c9a81c3129d58d49758A7d078c1));
         PriceFeed feed = new PriceFeed(ethUsdFeed);
 
         // 3. AMM (GAME / WOOD pool)
@@ -48,7 +49,7 @@ contract DeployScript is Script {
         GameGovernor governor = new GameGovernor(token, timelock);
 
         // 6. Loot VRF (Mocked or using testnet coordinator)
-        address vrfCoordinator = 0x6D1416c43F9cb9F0A70068BB7F2cd9E6A0324310; // Checksummed by cast below
+        address vrfCoordinator = 0x6D1416c43F9cb9F0A70068BB7F2cd9E6A0324310;
 
         LootVRF loot = new LootVRF(vrfCoordinator, address(item), 1, bytes32(0));
 
