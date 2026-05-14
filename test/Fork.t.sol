@@ -14,7 +14,7 @@ import "../src/interfaces/AggregatorV3Interface.sol";
 contract ForkTest is Test {
     PriceFeed feed;
 
-    address ETH_USD_FEED= 0xd30621D869D25c9a81c3129d58d49758A7d078c1;
+    address ETH_USD_FEED = 0xd30621D869D25c9a81c3129d58d49758A7d078c1;
     address constant WETH = 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73;
 
     uint256 fork;
