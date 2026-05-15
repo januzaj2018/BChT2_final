@@ -28,7 +28,15 @@ node:
 
 # Deploy all smart contracts to the local Anvil node
 deploy:
-    forge script script/Deploy.s.sol --rpc-url {{ RPC_URL }} --broadcast
+    forge script script/Deploy.s.sol --rpc-url {{ RPC_URL }} --private-key {{ ANVIL_KEY }} --broadcast
+
+# Run post-deployment decentralized checks
+verify-deploy:
+    forge script script/VerifyDeployment.s.sol --rpc-url {{ RPC_URL }} --sig "run()"
+
+# Run the end-to-end DAO governance lifecycle (propose, vote, queue, execute)
+governance-demo:
+    forge script script/GovernanceLifecycleDemo.s.sol --rpc-url {{ RPC_URL }} --sig "run()"
 
 # Deploy all smart contracts to Arbitrum Sepolia L2 (uses PRIVATE_KEY from environment)
 deploy-l2:
