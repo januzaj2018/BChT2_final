@@ -44,8 +44,10 @@ contract GameItem is ERC1155, AccessControl, Pausable {
         _grantRole(PAUSER_ROLE, msg.sender);
 
         // Initialize with 10 fungible crafting materials (IDs 1-10)
+        // Amount: 100 each (with 18 decimals) — enough to test all features
+        // without causing UI BigInt overflow in the frontend.
         for (uint256 i = 1; i <= 10; i++) {
-            _mint(msg.sender, i, 1_000_000 * 10 ** 18, "");
+            _mint(msg.sender, i, 100 * 10 ** 18, "");
         }
         itemIdCounter = 11;
     }

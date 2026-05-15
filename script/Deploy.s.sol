@@ -30,7 +30,8 @@ contract DeployScript is Script {
     }
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(1));
+        // Use environment variable if set, otherwise fallback to Anvil's default account #0
+        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address deployer = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
@@ -69,6 +70,7 @@ contract DeployScript is Script {
         vm.stopBroadcast();
 
         _logAddresses(dc);
+        _writeDeploymentJson(dc);
     }
 
     function _setupRoles(DeployedContracts memory dc, address deployer) internal {
@@ -95,5 +97,26 @@ contract DeployScript is Script {
         console.log("GameTimelock:", address(dc.timelock));
         console.log("GameGovernor:", address(dc.governor));
         console.log("LootVRF:", address(dc.loot));
+    }
+
+    /**
+     * @dev Writes all deployed addresses to deployments/local.json.
+     *      The frontend and Justfile sync-addresses command reads this file
+     *      so you never have to copy-paste addresses manually.
+     */
+    function _writeDeploymentJson(DeployedContracts memory dc) internal {
+        string memory obj = "output";
+        vm.serializeAddress(obj, "GameToken", address(dc.token));
+        vm.serializeAddress(obj, "GameItem", address(dc.item));
+        vm.serializeAddress(obj, "PriceFeed", address(dc.feed));
+        vm.serializeAddress(obj, "GameAMM", address(dc.amm));
+        vm.serializeAddress(obj, "RentalVault", address(dc.vault));
+        vm.serializeAddress(obj, "GameTimelock", address(dc.timelock));
+        vm.serializeAddress(obj, "GameGovernor", address(dc.governor));
+        string memory finalJson = vm.serializeAddress(obj, "LootVRF", address(dc.loot));
+
+        // Write to deployments/local.json (relative to project root)
+        vm.writeJson(finalJson, "./deployments/local.json");
+        console.log("Addresses written to deployments/local.json");
     }
 }

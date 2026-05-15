@@ -11,6 +11,10 @@ remappings = [
     "@openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/",
     "@chainlink/=lib/chainlink-contracts/",
 ]
+fs_permissions = [
+    { access = "read-write", path = "./deployments" },
+    { access = "read-write", path = "./frontend/src" }
+]
 
 [profile.default.fuzz]
 runs = 256
