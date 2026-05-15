@@ -31,7 +31,8 @@ contract DeployScript is Script {
 
     function run() external {
         // Use environment variable if set, otherwise fallback to Anvil's default account #0
-        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerPrivateKey =
+            vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address deployer = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
@@ -74,17 +75,36 @@ contract DeployScript is Script {
     }
 
     function _setupRoles(DeployedContracts memory dc, address deployer) internal {
+        // Governance setup
         dc.timelock.grantRole(dc.timelock.PROPOSER_ROLE(), address(dc.governor));
         dc.timelock.grantRole(dc.timelock.EXECUTOR_ROLE(), address(0));
 
+        // Token Roles
         dc.token.grantRole(dc.token.MINTER_ROLE(), address(dc.vault));
         dc.token.grantRole(dc.token.MINTER_ROLE(), address(dc.loot));
-        dc.item.grantRole(dc.item.MINTER_ROLE(), address(dc.loot));
-        dc.item.grantRole(dc.item.DEFAULT_ADMIN_ROLE(), address(dc.timelock));
-
-        // Transfer admin to timelock
         dc.token.grantRole(0x00, address(dc.timelock));
         dc.token.revokeRole(0x00, deployer);
+
+        // Item Roles
+        dc.item.grantRole(dc.item.MINTER_ROLE(), address(dc.loot));
+        dc.item.grantRole(dc.item.DEFAULT_ADMIN_ROLE(), address(dc.timelock));
+        dc.item.grantRole(dc.item.MINTER_ROLE(), address(dc.timelock));
+        dc.item.grantRole(dc.item.BURNER_ROLE(), address(dc.timelock));
+        dc.item.grantRole(dc.item.PAUSER_ROLE(), address(dc.timelock));
+
+        // Revoke deployer's Item roles
+        dc.item.revokeRole(dc.item.MINTER_ROLE(), deployer);
+        dc.item.revokeRole(dc.item.BURNER_ROLE(), deployer);
+        dc.item.revokeRole(dc.item.PAUSER_ROLE(), deployer);
+        dc.item.revokeRole(dc.item.DEFAULT_ADMIN_ROLE(), deployer);
+
+        // Ownable transfer of ownership to Timelock
+        dc.vault.transferOwnership(address(dc.timelock));
+        dc.feed.transferOwnership(address(dc.timelock));
+
+        // LootVRF Admin roles
+        dc.loot.grantRole(0x00, address(dc.timelock));
+        dc.loot.revokeRole(0x00, deployer);
     }
 
     function _logAddresses(DeployedContracts memory dc) internal view {

@@ -1,4 +1,6 @@
 # GameFi Protocol Commands
+set dotenv-load := true
+
 # Default variables
 
 ANVIL_KEY := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -27,6 +29,14 @@ node:
 # Deploy all smart contracts to the local Anvil node
 deploy:
     forge script script/Deploy.s.sol --rpc-url {{ RPC_URL }} --broadcast
+
+# Deploy all smart contracts to Arbitrum Sepolia L2 (uses PRIVATE_KEY from environment)
+deploy-l2:
+    @if [ -z "$PRIVATE_KEY" ] || [ "$PRIVATE_KEY" = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" ]; then \
+        echo "ERROR: Please update the PRIVATE_KEY in your .env file with your funded L2 private key."; \
+        exit 1; \
+    fi
+    forge script script/Deploy.s.sol --rpc-url https://sepolia-rollup.arbitrum.io/rpc --broadcast
 
 # Read deployments/local.json (written by Deploy.s.sol) and patch:
 #   - frontend/src/contracts.local.json  (used by App.jsx import)

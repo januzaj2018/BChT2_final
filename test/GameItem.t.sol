@@ -18,7 +18,7 @@ contract GameItemTest is Test {
 
     function testInitialization() public {
         assertEq(gameItem.itemIdCounter(), 11);
-        assertEq(gameItem.balanceOf(admin, 1), 1_000_000 * 10 ** 18);
+        assertEq(gameItem.balanceOf(admin, 1), 100 * 10 ** 18);
     }
 
     function testMint() public {
