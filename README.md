@@ -277,11 +277,11 @@ npm run lint      # ESLint check
 ```
 
 ### Features
-- 🏦 **AMM Swap Panel** — swap between `GameToken` and any resource item with live price preview
-- 📦 **Items Dashboard** — view all 10 ERC-1155 item balances
-- 🏠 **Rental Vault** — deposit/withdraw NFTs and pay rent with Chainlink oracle pricing
-- 🎲 **Loot VRF** — trigger Chainlink VRF loot drops
-- 🗳️ **Governance Console** — delegate votes, view proposals, connect to subgraph indexer
+- **AMM Swap Panel** — swap between `GameToken` and any resource item with live price preview
+- **Items Dashboard** — view all 10 ERC-1155 item balances
+- **Rental Vault** — deposit/withdraw NFTs and pay rent with Chainlink oracle pricing
+- **Loot VRF** — trigger Chainlink VRF loot drops
+- **Governance Console** — delegate votes, view proposals, connect to subgraph indexer
 
 ### Vercel Deployment
 

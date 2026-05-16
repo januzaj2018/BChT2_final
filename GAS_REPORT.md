@@ -1,5 +1,3 @@
-No files changed, compilation skipped
-
 Ran 1 test for test/GovernanceE2E.t.sol:GovernanceE2E
 [PASS] testFullGovernanceLifecycle() (gas: 353740)
 Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 29.61ms (12.42ms CPU time)
