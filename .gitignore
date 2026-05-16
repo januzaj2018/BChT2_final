@@ -31,7 +31,6 @@ node_modules/
 Thumbs.db
 /lcov.info
 deployments/local.json
-frontend/src/contracts.local.json
 /report/report.typ
 /report/aitu.svg
 /report/aitu2.svg
