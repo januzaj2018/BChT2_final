@@ -47,9 +47,8 @@ contract GameItemFactory is ERC1155Holder {
 
     /// @notice Predict the address a CREATE2 deployment will produce before actually deploying.
     function predictCreate2Address(bytes32 salt) external view returns (address) {
-        bytes32 hash = keccak256(
-            abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(type(GameItem).creationCode))
-        );
+        bytes32 hash =
+            keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(type(GameItem).creationCode)));
         return address(uint160(uint256(hash)));
     }
 
