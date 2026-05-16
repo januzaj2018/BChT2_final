@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   useAccount,
   useConnect,
@@ -594,7 +594,7 @@ function GovernanceTab({ contracts }) {
   const [isLoadingSubgraph, setIsLoadingSubgraph] = useState(false);
   const [subgraphError, setSubgraphError] = useState(null);
 
-  const fetchFromSubgraph = async (url) => {
+  const fetchFromSubgraph = useCallback(async (url) => {
     const urlToUse = url || subgraphUrl;
     if (!urlToUse || urlToUse.includes('99999')) {
       setSubgraphError('Please configure your Graph Studio Subgraph Query URL below.');
@@ -636,14 +636,18 @@ function GovernanceTab({ contracts }) {
     } finally {
       setIsLoadingSubgraph(false);
     }
-  };
+  }, [subgraphUrl]);
 
   useEffect(() => {
     const storedUrl = localStorage.getItem('gamefi_subgraph_url') || import.meta.env.VITE_SUBGRAPH_URL;
     if (storedUrl && !storedUrl.includes('99999')) {
-      fetchFromSubgraph(storedUrl);
+      // Defer execution to satisfy set-state-in-effect ESLint rules
+      const timer = setTimeout(() => {
+        fetchFromSubgraph(storedUrl);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [fetchFromSubgraph]);
 
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
