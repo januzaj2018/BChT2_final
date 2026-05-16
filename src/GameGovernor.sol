@@ -50,7 +50,8 @@ contract GameGovernor is
     }
 
     function proposalThreshold() public view override(Governor, GovernorSettings) returns (uint256) {
-        return super.proposalThreshold();
+        // 1% of total token supply required to create a proposal
+        return token().getPastTotalSupply(block.number - 1) / 100;
     }
 
     function _queueOperations(
