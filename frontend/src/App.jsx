@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   useAccount,
   useConnect,
@@ -586,6 +586,65 @@ function GovernanceTab({ contracts }) {
   const [proposalDesc, setProposalDesc] = useState('');
   const [actionTab, setActionTab] = useState('proposals'); // 'proposals' | 'delegate' | 'create-proposal'
 
+  // Subgraph Integration State & Fetcher
+  const [subgraphUrl, setSubgraphUrl] = useState(() => {
+    return localStorage.getItem('gamefi_subgraph_url') || import.meta.env.VITE_SUBGRAPH_URL || 'https://api.studio.thegraph.com/query/99999/gamefi-protocol/v0.0.1';
+  });
+  const [subgraphProposals, setSubgraphProposals] = useState([]);
+  const [isLoadingSubgraph, setIsLoadingSubgraph] = useState(false);
+  const [subgraphError, setSubgraphError] = useState(null);
+
+  const fetchFromSubgraph = async (url) => {
+    const urlToUse = url || subgraphUrl;
+    if (!urlToUse || urlToUse.includes('99999')) {
+      setSubgraphError('Please configure your Graph Studio Subgraph Query URL below.');
+      return;
+    }
+    setIsLoadingSubgraph(true);
+    setSubgraphError(null);
+    try {
+      const query = `
+        query {
+          proposals(orderBy: startBlock, orderDirection: desc, first: 10) {
+            id
+            proposer
+            description
+            status
+            startBlock
+            endBlock
+          }
+        }
+      `;
+      const response = await fetch(urlToUse, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const resData = await response.json();
+      if (resData.errors) {
+        throw new Error(resData.errors[0].message);
+      }
+      const data = resData.data?.proposals || [];
+      setSubgraphProposals(data);
+      localStorage.setItem('gamefi_subgraph_url', urlToUse);
+    } catch (err) {
+      setSubgraphError(err.message || 'Failed to fetch from subgraph');
+      setSubgraphProposals([]);
+    } finally {
+      setIsLoadingSubgraph(false);
+    }
+  };
+
+  useEffect(() => {
+    const storedUrl = localStorage.getItem('gamefi_subgraph_url') || import.meta.env.VITE_SUBGRAPH_URL;
+    if (storedUrl && !storedUrl.includes('99999')) {
+      fetchFromSubgraph(storedUrl);
+    }
+  }, []);
+
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -649,65 +708,154 @@ function GovernanceTab({ contracts }) {
 
       {actionTab === 'proposals' && (
         <div>
+          {/* Subgraph Integration settings console */}
+          <div className="mb-8 p-6 bg-surface-muted border border-border rounded-2xl shadow-inner relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2 opacity-5">
+              <Activity size={96} className="text-accent" />
+            </div>
+            <h3 className="text-sm font-bold text-accent uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Sparkles size={16} /> Subgraph Indexer Console
+            </h3>
+            <p className="text-xs text-muted leading-relaxed mb-4">
+              Query state values, crafting parameters, and voting histories directly from **The Graph Decentralized Indexing Network** instead of performing costly direct on-chain RPC reads.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="Enter Graph Studio Query URL (https://api.studio.thegraph.com/query/...)"
+                value={subgraphUrl}
+                onChange={(e) => setSubgraphUrl(e.target.value)}
+                className="flex-1 bg-background text-foreground border border-border px-3.5 py-2 rounded-xl text-xs outline-none font-mono focus:border-accent transition-colors"
+              />
+              <button
+                onClick={() => fetchFromSubgraph(subgraphUrl)}
+                className="btn btn-primary text-xs py-2 px-4 font-semibold shrink-0 cursor-pointer shadow-md rounded-xl hover:shadow-lg transition-all"
+                disabled={isLoadingSubgraph}
+              >
+                {isLoadingSubgraph ? (
+                  <span className="flex items-center gap-1">
+                    <Loader2 size={12} className="animate-spin" /> Querying...
+                  </span>
+                ) : (
+                  "Query Indexer"
+                )}
+              </button>
+            </div>
+            {subgraphError && (
+              <p className="text-[11px] text-amber-600 font-semibold mt-2.5 flex items-center gap-1">
+                <AlertTriangle size={12} /> {subgraphError}
+              </p>
+            )}
+          </div>
+
           <h2 className="text-xl font-bold mb-1 flex items-center gap-2 text-foreground">
             <Vote size={20} className="text-muted" /> Active Protocol Proposals
           </h2>
           <p className="text-muted text-sm mb-6">Vote on critical system values, crafting equations, and resource allocation.</p>
 
           <div className="space-y-6">
-            <div className="p-5 border border-border rounded-xl hover:shadow-md transition-shadow bg-surface relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-accent text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl">
-                SIP-12
-              </div>
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <span className="badge badge-active mb-2">Active</span>
-                  <h3 className="text-lg font-bold text-foreground">Update Crafting Costs</h3>
-                </div>
-                <span className="text-xs text-muted font-medium">Ends in 2 days</span>
-              </div>
-              <p className="text-muted mb-5 text-sm">Reduce the crafting resource requirement of high-tier swords by 15% to maintain balanced early-game progression.</p>
-
-              <div className="flex gap-3 border-t border-border pt-4">
-                <button
-                  onClick={() => castVoteOnProposal("12", 1)}
-                  className="btn btn-primary flex-1 py-2.5 text-sm font-semibold"
-                  disabled={isPending || isConfirming}
+            {subgraphProposals.length > 0 ? (
+              subgraphProposals.map((prop) => (
+                <div
+                  key={prop.id}
+                  className="p-5 border border-border rounded-xl hover:shadow-md transition-all bg-surface relative overflow-hidden"
                 >
-                  Vote For
-                </button>
-                <button
-                  onClick={() => castVoteOnProposal("12", 0)}
-                  className="btn btn-outline flex-1 py-2.5 text-sm font-semibold"
-                  disabled={isPending || isConfirming}
-                >
-                  Vote Against
-                </button>
-              </div>
-            </div>
+                  <div className="absolute top-0 right-0 bg-accent text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl">
+                    Proposal #{prop.id.slice(0, 6)}...
+                  </div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span className={`badge mb-2 uppercase text-[10px] ${prop.status === "Pending" ? "badge-queued" : prop.status === "Active" ? "badge-active" : "badge-queued"}`}>
+                        {prop.status}
+                      </span>
+                      <h3 className="text-lg font-bold text-foreground mt-1">
+                        {prop.description || "Unnamed Proposal"}
+                      </h3>
+                      <p className="text-[11px] text-muted font-mono mt-1">
+                        Proposer: {prop.proposer.slice(0, 6)}...{prop.proposer.slice(-4)}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted font-medium">
+                      Blocks: {prop.startBlock} to {prop.endBlock}
+                    </span>
+                  </div>
 
-            <div className="p-5 border border-border rounded-xl bg-surface-muted opacity-75 relative">
-              <div className="absolute top-0 right-0 bg-gray-400 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl">
-                SIP-11
-              </div>
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <span className="badge badge-queued mb-2">Queued</span>
-                  <h3 className="text-lg font-bold text-slate-700">Mithril Plate Armor Blueprint</h3>
+                  <div className="flex gap-3 border-t border-border pt-4 mt-4">
+                    <button
+                      onClick={() => castVoteOnProposal(prop.id, 1)}
+                      className="btn btn-primary flex-1 py-2 text-sm font-semibold"
+                      disabled={isPending || isConfirming}
+                    >
+                      Vote For
+                    </button>
+                    <button
+                      onClick={() => castVoteOnProposal(prop.id, 0)}
+                      className="btn btn-outline flex-1 py-2 text-sm font-semibold"
+                      disabled={isPending || isConfirming}
+                    >
+                      Vote Against
+                    </button>
+                  </div>
                 </div>
-                <span className="text-xs text-muted font-medium">Ready to Execute</span>
-              </div>
-              <p className="text-muted mb-4 text-sm">Add recipe blueprint #104: Allows crafting Level 4 protective plate body pieces.</p>
-              <div className="pt-2">
-                <div className="h-2 w-full bg-border rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 w-[91%]"></div>
+              ))
+            ) : (
+              <>
+                {/* Fallback to Default Premium UI elements when no Subgraph is connected */}
+                <div className="p-5 border border-border rounded-xl hover:shadow-md transition-shadow bg-surface relative overflow-hidden">
+                  <div className="absolute top-0 right-0 bg-accent text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl">
+                    SIP-12
+                  </div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span className="badge badge-active mb-2">Active</span>
+                      <h3 className="text-lg font-bold text-foreground">Update Crafting Costs</h3>
+                    </div>
+                    <span className="text-xs text-muted font-medium">Ends in 2 days</span>
+                  </div>
+                  <p className="text-muted mb-5 text-sm">Reduce the crafting resource requirement of high-tier swords by 15% to maintain balanced early-game progression.</p>
+
+                  <div className="flex gap-3 border-t border-border pt-4">
+                    <button
+                      onClick={() => castVoteOnProposal("12", 1)}
+                      className="btn btn-primary flex-1 py-2.5 text-sm font-semibold"
+                      disabled={isPending || isConfirming}
+                    >
+                      Vote For
+                    </button>
+                    <button
+                      onClick={() => castVoteOnProposal("12", 0)}
+                      className="btn btn-outline flex-1 py-2.5 text-sm font-semibold"
+                      disabled={isPending || isConfirming}
+                    >
+                      Vote Against
+                    </button>
+                  </div>
                 </div>
-                <div className="flex justify-between text-[11px] font-semibold text-muted mt-2">
-                  <span>91% SUPPORT (FOR)</span>
-                  <span>9% OPPOSE (AGAINST)</span>
+
+                <div className="p-5 border border-border rounded-xl bg-surface-muted opacity-75 relative">
+                  <div className="absolute top-0 right-0 bg-gray-400 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl">
+                    SIP-11
+                  </div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span className="badge badge-queued mb-2">Queued</span>
+                      <h3 className="text-lg font-bold text-slate-700">Mithril Plate Armor Blueprint</h3>
+                    </div>
+                    <span className="text-xs text-muted font-medium">Ready to Execute</span>
+                  </div>
+                  <p className="text-muted mb-4 text-sm">Add recipe blueprint #104: Allows crafting Level 4 protective plate body pieces.</p>
+                  <div className="pt-2">
+                    <div className="h-2 w-full bg-border rounded-full overflow-hidden">
+                      <div className="h-full bg-green-500 w-[91%]"></div>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-semibold text-muted mt-2">
+                      <span>91% SUPPORT (FOR)</span>
+                      <span>9% OPPOSE (AGAINST)</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
       )}
