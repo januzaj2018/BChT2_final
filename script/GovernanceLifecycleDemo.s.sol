@@ -133,9 +133,9 @@ contract GovernanceLifecycleDemo is Script {
         string memory currentUri = item.uri(1);
         console.log("Expected URI:", newUri);
         console.log("Actual URI:  ", currentUri);
-        
+
         require(keccak256(bytes(currentUri)) == keccak256(bytes(newUri)), "FAIL: State change failed!");
-        
+
         console.log("\n=======================================================");
         console.log("DAO GOVERNANCE LIFECYCLE DEMO SUCCESSFULLY COMPLETED!");
         console.log("The entire lifecycle has run end-to-end flawlessly.");

@@ -3,7 +3,6 @@ import {
   useAccount,
   useConnect,
   useDisconnect,
-  useBalance,
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
@@ -16,7 +15,7 @@ import {
 import { arbitrumSepolia, foundry } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { parseEther, formatEther } from 'viem';
+import { parseEther } from 'viem';
 import {
   Wallet,
   ArrowRightLeft,
@@ -26,19 +25,16 @@ import {
   RefreshCcw,
   LayoutDashboard,
   ExternalLink,
-  ChevronDown,
   UserPlus,
   Plus,
   MinusCircle,
   Activity,
   Flame,
   Sparkles,
-  TrendingUp,
   UserCheck,
   FileText,
   AlertTriangle,
   Loader2,
-  CheckCircle,
   HelpCircle,
   Gem,
   Package,
@@ -582,7 +578,7 @@ function VaultTab({ contracts }) {
 }
 
 function GovernanceTab({ contracts }) {
-  const { address } = useAccount();
+  useAccount();
   const [delegatee, setDelegatee] = useState('');
   const [proposalTargets, setProposalTargets] = useState('');
   const [proposalValues, setProposalValues] = useState('0');

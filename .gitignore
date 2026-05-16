@@ -35,3 +35,7 @@ frontend/src/contracts.local.json
 /report/report.typ
 /report/aitu.svg
 /report/aitu2.svg
+
+# Subgraph
+subgraph/build/
+subgraph/generated/

@@ -1,11 +1,11 @@
-type GameItem @entity {
+type GameItem @entity(immutable: false) {
   id: ID!
   tokenId: BigInt!
   owner: Bytes!
   balance: BigInt!
 }
 
-type AMMLiquidity @entity {
+type AMMLiquidity @entity(immutable: false) {
   id: ID!
   user: Bytes!
   lpAmount: BigInt!
@@ -13,7 +13,7 @@ type AMMLiquidity @entity {
   reserveY: BigInt!
 }
 
-type Swap @entity {
+type Swap @entity(immutable: true) {
   id: ID!
   user: Bytes!
   tokenIn: Bytes!
@@ -23,7 +23,7 @@ type Swap @entity {
   timestamp: BigInt!
 }
 
-type Craft @entity {
+type Craft @entity(immutable: true) {
   id: ID!
   user: Bytes!
   recipeId: BigInt!
@@ -31,7 +31,7 @@ type Craft @entity {
   outputs: BigInt!
 }
 
-type VaultDeposit @entity {
+type VaultDeposit @entity(immutable: true) {
   id: ID!
   user: Bytes!
   tokenId: BigInt!
@@ -40,7 +40,7 @@ type VaultDeposit @entity {
   timestamp: BigInt!
 }
 
-type Proposal @entity {
+type Proposal @entity(immutable: false) {
   id: ID!
   proposer: Bytes!
   targets: [Bytes!]!
@@ -53,7 +53,7 @@ type Proposal @entity {
   status: String!
 }
 
-type Vote @entity {
+type Vote @entity(immutable: true) {
   id: ID!
   voter: Bytes!
   proposalId: BigInt!

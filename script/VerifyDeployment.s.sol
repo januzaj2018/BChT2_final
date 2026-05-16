@@ -27,7 +27,7 @@ contract VerifyDeployment is Script {
 
     function run() external {
         // Read deployment JSON
-        string memory path = "deployments/local.json";
+        string memory path = vm.envOr("DEPLOYMENT_JSON", string("deployments/local.json"));
         string memory json = vm.readFile(path);
 
         DeployedAddresses memory addrs;
@@ -40,7 +40,7 @@ contract VerifyDeployment is Script {
         addrs.feed = vm.parseJsonAddress(json, ".PriceFeed");
         addrs.vault = vm.parseJsonAddress(json, ".RentalVault");
 
-        address deployer = msg.sender;
+        address deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
 
         console.log("=== STARTING POST-DEPLOYMENT VERIFICATION ===");
         console.log("Deployer:", deployer);
@@ -67,7 +67,7 @@ contract VerifyDeployment is Script {
         console.log("\n3. Verifying Ownable contracts...");
         RentalVault vault = RentalVault(payable(addrs.vault));
         PriceFeed feed = PriceFeed(addrs.feed);
-        
+
         require(vault.owner() == addrs.timelock, "FAIL: RentalVault owner is not Timelock");
         require(feed.owner() == addrs.timelock, "FAIL: PriceFeed owner is not Timelock");
         console.log("SUCCESS: Ownable contracts (Vault, PriceFeed) have been successfully transferred to Timelock.");

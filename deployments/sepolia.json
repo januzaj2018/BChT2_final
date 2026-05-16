@@ -1,0 +1,10 @@
+{
+  "GameAMM": "0x2082b95707b5567964be85e75355e96b7b2e408b",
+  "GameGovernor": "0x155f0844ec55e454918ae043ddf2f4b976cc1b80",
+  "GameItem": "0xa710612fe06503cbc502ef5a364b253c804bd3d5",
+  "GameTimelock": "0xb126d03d6d3426d85a6f77b2110d6e5a15e9f377",
+  "GameToken": "0x491707829ce7b07227c40a61c781db6ddddd3683",
+  "LootVRF": "0x46518134d22fce2a5314f8326f11b616c8d76455",
+  "PriceFeed": "0xb4719c9c05d6e7e81007824eecdbe03f9435c337",
+  "RentalVault": "0x8d7a7217fb714624c215b9a6925a3c9fdad94d07"
+}

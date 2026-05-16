@@ -119,6 +119,19 @@ coverage:
 format:
     forge fmt
 
+# Check Solidity formatting (CI-safe, no writes)
+fmt-check:
+    forge fmt --check
+
+# Lint the frontend (ESLint)
+lint:
+    cd frontend && npm run lint
+
+# Run all checks required before pushing to remote
+pre-push: fmt-check test lint
+    @echo ""
+    @echo "All pre-push checks passed — safe to push."
+
 # ---- WALLET FUNDING (LOCAL NODE) ----
 # Send 10 ETH to a specified address for gas fees
 

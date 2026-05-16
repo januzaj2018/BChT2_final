@@ -98,8 +98,8 @@ export function handleProposalCreated(event: ProposalCreated): void {
   entity.values = event.params.values
   entity.signatures = event.params.signatures
   entity.calldatas = event.params.calldatas
-  entity.startBlock = event.params.startBlock
-  entity.endBlock = event.params.endBlock
+  entity.startBlock = event.params.voteStart
+  entity.endBlock = event.params.voteEnd
   entity.description = event.params.description
   entity.status = "Pending"
   entity.save()
