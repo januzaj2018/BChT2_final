@@ -77,9 +77,11 @@ contract GameAMM is ERC20, ReentrancyGuard {
         // Constant product formula: (x + dx) * (y - dy) = x * y
         // dx = amountIn, dy = amountOut
         // amountOut = (y * dx) / (x + dx)
-        // With 0.3% fee: amountInWithFee = amountIn * 997 / 1000
-        uint256 amountInWithFee = (amountIn * 997) / 1000;
-        amountOut = (_reserveOut * amountInWithFee) / (_reserveIn + amountInWithFee);
+        // With 0.3% fee: amountInWithFee = amountIn * 997 (scaled by 1000)
+        uint256 amountInWithFee = amountIn * 997;
+        uint256 numerator = amountInWithFee * _reserveOut;
+        uint256 denominator = (_reserveIn * 1000) + amountInWithFee;
+        amountOut = numerator / denominator;
 
         require(amountOut >= minAmountOut, "Slippage too high");
         _tokenOut.safeTransfer(msg.sender, amountOut);
@@ -95,7 +97,9 @@ contract GameAMM is ERC20, ReentrancyGuard {
 
     function getAmountOut(uint256 amountIn, bool isX) external view returns (uint256 amountOut) {
         (uint256 _reserveIn, uint256 _reserveOut) = isX ? (reserveX, reserveY) : (reserveY, reserveX);
-        uint256 amountInWithFee = (amountIn * 997) / 1000;
-        return (_reserveOut * amountInWithFee) / (_reserveIn + amountInWithFee);
+        uint256 amountInWithFee = amountIn * 997;
+        uint256 numerator = amountInWithFee * _reserveOut;
+        uint256 denominator = (_reserveIn * 1000) + amountInWithFee;
+        return numerator / denominator;
     }
 }
