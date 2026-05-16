@@ -285,7 +285,7 @@ npm run lint      # ESLint check
 
 ### Vercel Deployment
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+[![Deploy with Vercel](https://vercel.com/button)](https://b-ch-t2-final.vercel.app/)
 
 When deploying on Vercel, set the following environment variable:
 
