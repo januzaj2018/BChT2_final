@@ -8,7 +8,7 @@ RPC_URL := "http://localhost:8545"
 
 # Contract addresses — update these after each fresh deploy
 
-GAME_TOKEN := "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+GAME_TOKEN := "0x67d269191c92Caf3cD7723F116c85e6E9bf55933"
 GAME_ITEM := "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
 
 # List all available commands
@@ -197,3 +197,48 @@ reset: deploy
     @echo "  just fund-eth <YOUR_ADDRESS>"
     @echo "  just mint-game <YOUR_ADDRESS>"
     @echo "  just give-items <YOUR_ADDRESS>"
+
+# ---- TIME SKIP & L2 HELPERS ----
+
+# Skip time and mine blocks on Anvil to fast-forward proposal statuses
+# Usage: just skip-time 172800 (skips 2 days)
+skip-time seconds="86400":
+    curl -H "Content-Type: application/json" -X POST --data '{"jsonrpc":"2.0","method":"evm_increaseTime","params":[{{seconds}}],"id":1}' {{ RPC_URL }}
+    curl -H "Content-Type: application/json" -X POST --data '{"jsonrpc":"2.0","method":"anvil_mine","params":[1],"id":1}' {{ RPC_URL }}
+    @echo "Advanced time by {{seconds}} seconds and mined 1 block on Anvil."
+
+# Mint GAME tokens on L2 Arbitrum Sepolia (uses PRIVATE_KEY from environment)
+# Usage: just mint-game-l2 0xYourAddress 1000
+mint-game-l2 address amount="1000":
+    #!/usr/bin/env bash
+    if [ -z "$PRIVATE_KEY" ]; then \
+        echo "ERROR: Please set the PRIVATE_KEY in your .env file."; \
+        exit 1; \
+    fi
+    PK=$PRIVATE_KEY
+    if [[ ! "$PK" =~ ^0x ]]; then
+        PK="0x$PK"
+    fi
+    AMOUNT_WEI=$(cast to-wei {{ amount }})
+    GAME_TOKEN_L2="0x491707829CE7b07227C40A61C781dB6ddDDD3683"
+    cast send $GAME_TOKEN_L2 "mint(address,uint256)" {{ address }} $AMOUNT_WEI \
+        --rpc-url https://sepolia-rollup.arbitrum.io/rpc --private-key $PK
+    echo "Successfully minted {{ amount }} GAME tokens to {{ address }} on Arbitrum Sepolia L2!"
+
+# Mint WOOD resource tokens on L2 Arbitrum Sepolia (uses PRIVATE_KEY from environment)
+# Usage: just mint-wood-l2 0xYourAddress 1000
+mint-wood-l2 address amount="1000":
+    #!/usr/bin/env bash
+    if [ -z "$PRIVATE_KEY" ]; then \
+        echo "ERROR: Please set the PRIVATE_KEY in your .env file."; \
+        exit 1; \
+    fi
+    PK=$PRIVATE_KEY
+    if [[ ! "$PK" =~ ^0x ]]; then
+        PK="0x$PK"
+    fi
+    AMOUNT_WEI=$(cast to-wei {{ amount }})
+    WOOD_TOKEN_L2="0x330a5edf4d82dd97fb0b6454138feaabc17731e7"
+    cast send $WOOD_TOKEN_L2 "mint(address,uint256)" {{ address }} $AMOUNT_WEI \
+        --rpc-url https://sepolia-rollup.arbitrum.io/rpc --private-key $PK
+    echo "Successfully minted {{ amount }} WOOD resource tokens to {{ address }} on Arbitrum Sepolia L2!"

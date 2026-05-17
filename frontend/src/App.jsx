@@ -83,7 +83,7 @@ const getContracts = (chainId) => {
   return CONTRACT_ADDRESSES[chainId] || CONTRACT_ADDRESSES[421614]; // fallback to Arb Sepolia
 };
 
-// Item resource names & styles for professional grid
+// Item resource names
 const RESOURCE_ITEMS = [
   { id: 1, name: "Gold Ore", icon: Gem, color: "text-amber-500", desc: "Rare mineral for high-tier crafting." },
   { id: 2, name: "Iron Ore", icon: Layers, color: "text-gray-400", desc: "Basic metal used in armor construction." },
@@ -114,6 +114,24 @@ function formatError(error) {
     return "Withdrawal locked: Cooldown cooldown still active.";
   }
   return msg.split("\n")[0] || "An unexpected error occurred.";
+}
+
+// Safely format a BigInt token amount (18 decimals) to a display string
+// without overflowing JS Number precision
+function safeFormatEther(raw) {
+  if (raw === undefined || raw === null) return "0.00";
+  const bigintRaw = BigInt(raw.toString());
+  if (bigintRaw === 0n) return "0.00";
+  try {
+    // Divide by 10^15 first to keep within safe integer range,
+    // then divide the remaining 10^3 as a float
+    const upper = bigintRaw / 1000000000000000n;
+    const display = Number(upper) / 1000;
+    if (!isFinite(display)) return "0.00";
+    return display.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  } catch {
+    return "err";
+  }
 }
 
 // --- MAIN COMPONENTS ---
@@ -171,9 +189,8 @@ function ConnectWallet() {
       ))}
     </div>
   );
-}
-
-function SwapTab({ contracts }) {
+} function SwapTab({ contracts }) {
+  const { address } = useAccount();
   const [amountIn, setAmountIn] = useState('');
   const [minAmountOut, setMinAmountOut] = useState('0.1');
   const [mode, setMode] = useState('swap'); // 'swap' | 'add-liquidity' | 'remove-liquidity'
@@ -183,6 +200,159 @@ function SwapTab({ contracts }) {
 
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // 1. Fetch user allowance for GAME (Token X) on AMM
+  const { data: allowanceX } = useReadContract({
+    address: contracts.GameToken,
+    abi: GameTokenABI,
+    functionName: 'allowance',
+    args: address ? [address, contracts.GameAMM] : undefined,
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
+  });
+
+  // 1.1. Fetch user balance of GAME (Token X)
+  const { data: balanceX } = useReadContract({
+    address: contracts.GameToken,
+    abi: GameTokenABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
+  });
+
+  // 2. Fetch the WOOD (Token Y) ERC20 address from GameAMM
+  const { data: tokenYAddress } = useReadContract({
+    address: contracts.GameAMM,
+    abi: GameAMMABI,
+    functionName: 'TOKEN_Y',
+    query: { enabled: !!address }
+  });
+
+  // 3. Fetch user allowance for WOOD (Token Y) on AMM
+  const { data: allowanceY } = useReadContract({
+    address: tokenYAddress,
+    abi: GameTokenABI,
+    functionName: 'allowance',
+    args: address && tokenYAddress ? [address, contracts.GameAMM] : undefined,
+    query: {
+      enabled: !!address && !!tokenYAddress,
+      refetchInterval: 3000
+    }
+  });
+
+  // 3.1. Fetch user balance of WOOD (Token Y)
+  const { data: balanceY } = useReadContract({
+    address: tokenYAddress,
+    abi: GameTokenABI,
+    functionName: 'balanceOf',
+    args: address && tokenYAddress ? [address] : undefined,
+    query: {
+      enabled: !!address && !!tokenYAddress,
+      refetchInterval: 3000
+    }
+  });
+
+  // 4. Fetch reserve ratio / AMM liquidity details
+  const { data: reserveX } = useReadContract({
+    address: contracts.GameAMM,
+    abi: GameAMMABI,
+    functionName: 'reserveX',
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
+  });
+  const { data: reserveY } = useReadContract({
+    address: contracts.GameAMM,
+    abi: GameAMMABI,
+    functionName: 'reserveY',
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
+  });
+
+  // 5. Fetch user LP shares balance
+  const { data: lpBalance } = useReadContract({
+    address: contracts.GameAMM,
+    abi: GameAMMABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
+  });
+
+  // Determine if swap approval is needed
+  const swapAmountWei = amountIn ? parseEther(amountIn) : 0n;
+  const balanceXVal = balanceX ?? 0n;
+  const balanceYVal = balanceY ?? 0n;
+
+  const hasInsufficientSwapBalance = swapAmountWei > 0n && balanceXVal < swapAmountWei;
+
+  // Determine if AMM pool actually has liquidity reserves
+  const hasReserves = reserveX !== undefined && reserveY !== undefined && reserveX > 0n && reserveY > 0n;
+
+  const needsSwapApproval = address && allowanceX !== undefined && swapAmountWei > 0n && allowanceX < swapAmountWei && !hasInsufficientSwapBalance;
+
+  // Determine if liquidity approvals are needed
+  const addAmountXWei = addAmountX ? parseEther(addAmountX) : 0n;
+  const addAmountYWei = addAmountY ? parseEther(addAmountY) : 0n;
+
+  const hasInsufficientLiquidityBalanceX = addAmountXWei > 0n && balanceXVal < addAmountXWei;
+  const hasInsufficientLiquidityBalanceY = addAmountYWei > 0n && balanceYVal < addAmountYWei;
+
+  const needsLiquidityApproveX = address && allowanceX !== undefined && addAmountXWei > 0n && allowanceX < addAmountXWei && !hasInsufficientLiquidityBalanceX;
+  const needsLiquidityApproveY = address && allowanceY !== undefined && addAmountYWei > 0n && allowanceY < addAmountYWei && !hasInsufficientLiquidityBalanceY;
+
+  const removeSharesWei = removeShares ? parseEther(removeShares) : 0n;
+  const lpBalanceVal = lpBalance ?? 0n;
+  const hasInsufficientLpBalance = removeSharesWei > 0n && lpBalanceVal < removeSharesWei;
+
+  // Calculate expected swap output dynamically from AMM pool reserves if available!
+  let estimatedAmountOut = "0.0";
+  if (hasReserves && amountIn) {
+    try {
+      const amountInWei = parseEther(amountIn);
+      const amountInWithFee = amountInWei * 997n;
+      const numerator = amountInWithFee * reserveY;
+      const denominator = (reserveX * 1000n) + amountInWithFee;
+      const amountOutWei = numerator / denominator;
+      const displayRaw = formatEther(amountOutWei);
+      const parsed = parseFloat(displayRaw);
+      estimatedAmountOut = isNaN(parsed) ? "0.0" : parsed.toFixed(4);
+    } catch {
+      estimatedAmountOut = "0.0";
+    }
+  } else if (amountIn) {
+    // Fallback simple 1:1 estimate if pool is empty
+    estimatedAmountOut = (parseFloat(amountIn) * 0.997).toFixed(4);
+  }
+
+  const handleApproveX = (targetContract, amount) => {
+    writeContract({
+      address: contracts.GameToken,
+      abi: GameTokenABI,
+      functionName: 'approve',
+      args: [targetContract, amount],
+    });
+  };
+
+  const handleApproveY = (targetContract, amount) => {
+    if (!tokenYAddress) return;
+    writeContract({
+      address: tokenYAddress,
+      abi: GameTokenABI,
+      functionName: 'approve',
+      args: [targetContract, amount],
+    });
+  };
 
   const handleSwap = () => {
     if (!amountIn) return;
@@ -214,6 +384,8 @@ function SwapTab({ contracts }) {
     });
   };
 
+  const isAmmLoading = address && (!contracts.GameAMM || !contracts.GameToken || tokenYAddress === undefined);
+
   return (
     <div className="card max-w-lg mx-auto">
       <div className="flex gap-2 mb-6 border-b border-border pb-4">
@@ -227,7 +399,7 @@ function SwapTab({ contracts }) {
           className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors cursor-pointer ${mode === 'add-liquidity' ? 'bg-accent text-white' : 'text-muted hover:text-foreground bg-surface-muted'}`}
           onClick={() => setMode('add-liquidity')}
         >
-          Add Liquidity
+          Supply Liquidity
         </button>
         <button
           className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors cursor-pointer ${mode === 'remove-liquidity' ? 'bg-accent text-white' : 'text-muted hover:text-foreground bg-surface-muted'}`}
@@ -237,132 +409,223 @@ function SwapTab({ contracts }) {
         </button>
       </div>
 
-      {mode === 'swap' && (
-        <div>
-          <h2 className="text-xl font-bold mb-1 flex items-center gap-2 text-foreground">
-            <ArrowRightLeft size={20} className="text-muted" /> AMM Swap
-          </h2>
-          <p className="text-muted text-sm mb-6">Swap your Game Tokens for in-game resource materials instantly.</p>
-
-          <div className="input-group mb-4">
-            <label>You Pay</label>
-            <div className="input-with-symbol text-lg">
-              <input
-                type="number"
-                placeholder="0.0"
-                value={amountIn}
-                onChange={(e) => setAmountIn(e.target.value)}
-              />
-              <span className="symbol bg-surface-muted px-2 py-1 rounded-md ml-2 flex items-center gap-1">GAME</span>
-            </div>
+      {/* Dynamic Pool State/Notice Card */}
+      {hasReserves ? (
+        <div className="bg-surface-muted/50 rounded-xl p-3 border border-border/60 mb-6 text-center text-xs flex justify-around text-muted">
+          <div>
+            <span className="font-semibold text-foreground block">{safeFormatEther(reserveX)} GAME</span>
+            Pool Reserve X
           </div>
-
-          <div className="flex justify-center -my-2 relative z-10">
-            <div className="bg-surface border border-border p-2 rounded-full text-muted shadow-sm hover:text-accent hover:border-accent transition-colors cursor-pointer">
-              <RefreshCcw size={16} />
-            </div>
+          <div className="border-r border-border/60 my-1"></div>
+          <div>
+            <span className="font-semibold text-foreground block">{safeFormatEther(reserveY)} WOOD</span>
+            Pool Reserve Y
           </div>
-
-          <div className="input-group mt-2 mb-4">
-            <label>You Receive (Estimated)</label>
-            <div className="input-with-symbol text-lg opacity-80 bg-surface-muted">
-              <input type="text" value={amountIn ? (parseFloat(amountIn) * 0.997).toFixed(4) : "0.0"} readOnly className="cursor-not-allowed" />
-              <span className="symbol bg-border px-2 py-1 rounded-md ml-2 flex items-center gap-1">WOOD</span>
-            </div>
-          </div>
-
-          <div className="input-group mb-4">
-            <label>Slippage Protection (Min Output)</label>
-            <input
-              type="number"
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-medium outline-none"
-              placeholder="Min amount of output to accept"
-              value={minAmountOut}
-              onChange={(e) => setMinAmountOut(e.target.value)}
-            />
-          </div>
-
-          <button
-            className="btn btn-primary w-full py-3 mt-4 text-base"
-            onClick={handleSwap}
-            disabled={isPending || isConfirming || !amountIn}
-          >
-            {isPending || isConfirming ? 'Processing Swap...' : 'Execute Swap'}
-          </button>
+        </div>
+      ) : (
+        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl p-3 mb-6 text-xs text-center flex flex-col gap-1">
+          <span>⚠️ <strong>Empty Liquidity Pool Notice (Sepolia):</strong></span>
+          <span className="opacity-90">Swaps are disabled because there are 0 GAME / 0 WOOD reserves in this L2 pool. You must switch to the <strong>Supply Liquidity</strong> tab to seed the pool ratio first!</span>
         </div>
       )}
 
-      {mode === 'add-liquidity' && (
-        <div>
-          <h2 className="text-xl font-bold mb-1 flex items-center gap-2 text-foreground">
-            <Plus size={20} className="text-muted" /> Supply Liquidity
-          </h2>
-          <p className="text-muted text-sm mb-6">Earn trading fees by providing balanced pools of GAME and WOOD resources.</p>
+      {isAmmLoading ? (
+        <div className="text-center py-8 text-muted">Loading AMM contracts and balances...</div>
+      ) : (
+        <>
+          {mode === 'swap' && (
+            <div>
+              <h2 className="text-xl font-bold mb-1 flex items-center gap-2 text-foreground">
+                <ArrowRightLeft size={20} className="text-muted" /> AMM Swap
+              </h2>
+              <p className="text-muted text-sm mb-6">Swap your Game Tokens for in-game resource materials instantly.</p>
 
-          <div className="input-group mb-4">
-            <label>GAME Token Amount</label>
-            <div className="input-with-symbol text-lg">
-              <input
-                type="number"
-                placeholder="0.0"
-                value={addAmountX}
-                onChange={(e) => setAddAmountX(e.target.value)}
-              />
-              <span className="symbol">GAME</span>
+              <div className="input-group mb-4">
+                <label className="flex justify-between w-full">
+                  <span>You Pay</span>
+                  <span className="text-xs font-semibold text-muted">Balance: {safeFormatEther(balanceX)} GAME</span>
+                </label>
+                <div className="input-with-symbol text-lg">
+                  <input
+                    type="number"
+                    placeholder="0.0"
+                    value={amountIn}
+                    onChange={(e) => setAmountIn(e.target.value)}
+                  />
+                  <span className="symbol bg-surface-muted px-2 py-1 rounded-md ml-2 flex items-center gap-1">GAME</span>
+                </div>
+              </div>
+
+              <div className="flex justify-center -my-2 relative z-10">
+                <div className="bg-surface border border-border p-2 rounded-full text-muted shadow-sm hover:text-accent hover:border-accent transition-colors cursor-pointer">
+                  <RefreshCcw size={16} />
+                </div>
+              </div>
+
+              <div className="input-group mt-2 mb-4">
+                <label className="flex justify-between w-full">
+                  <span>You Receive (Estimated)</span>
+                  <span className="text-xs font-semibold text-muted">Balance: {safeFormatEther(balanceY)} WOOD</span>
+                </label>
+                <div className="input-with-symbol text-lg opacity-80 bg-surface-muted">
+                  <input type="text" value={estimatedAmountOut} readOnly className="cursor-not-allowed" />
+                  <span className="symbol bg-border px-2 py-1 rounded-md ml-2 flex items-center gap-1">WOOD</span>
+                </div>
+              </div>
+
+              <div className="input-group mb-4">
+                <label>Slippage Protection (Min Output)</label>
+                <input
+                  type="number"
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-medium outline-none"
+                  placeholder="Min amount of output to accept"
+                  value={minAmountOut}
+                  onChange={(e) => setMinAmountOut(e.target.value)}
+                />
+              </div>
+
+              {hasInsufficientSwapBalance ? (
+                <button className="btn bg-red-600/20 text-red-400 border border-red-500/30 w-full py-3 mt-4 text-base font-bold shadow-lg cursor-not-allowed" disabled={true}>
+                  Insufficient GAME Balance
+                </button>
+              ) : !hasReserves ? (
+                <button className="btn bg-red-600/20 text-red-400 border border-red-500/30 w-full py-3 mt-4 text-base font-bold shadow-lg cursor-not-allowed" disabled={true}>
+                  AMM Pool is Empty: Please Add Liquidity First
+                </button>
+              ) : needsSwapApproval ? (
+                <button
+                  className="btn bg-amber-600 hover:bg-amber-700 text-white w-full py-3 mt-4 text-base font-bold shadow-lg"
+                  onClick={() => handleApproveX(contracts.GameAMM, swapAmountWei)}
+                  disabled={isPending || isConfirming}
+                >
+                  {isPending || isConfirming ? 'Approving GAME...' : 'Approve GAME Token'}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary w-full py-3 mt-4 text-base"
+                  onClick={handleSwap}
+                  disabled={isPending || isConfirming || !amountIn}
+                >
+                  {isPending || isConfirming ? 'Processing Swap...' : 'Execute Swap'}
+                </button>
+              )}
             </div>
-          </div>
+          )}
 
-          <div className="input-group mb-4">
-            <label>WOOD Resource Amount</label>
-            <div className="input-with-symbol text-lg">
-              <input
-                type="number"
-                placeholder="0.0"
-                value={addAmountY}
-                onChange={(e) => setAddAmountY(e.target.value)}
-              />
-              <span className="symbol">WOOD</span>
+          {mode === 'add-liquidity' && (
+            <div>
+              <h2 className="text-xl font-bold mb-1 flex items-center gap-2 text-foreground">
+                <Plus size={20} className="text-muted" /> Supply Liquidity
+              </h2>
+              <p className="text-muted text-sm mb-6">Earn trading fees by providing balanced pools of GAME and WOOD resources.</p>
+
+              <div className="input-group mb-4">
+                <label className="flex justify-between w-full">
+                  <span>GAME Token Amount</span>
+                  <span className="text-xs font-semibold text-muted">Balance: {safeFormatEther(balanceX)} GAME</span>
+                </label>
+                <div className="input-with-symbol text-lg">
+                  <input
+                    type="number"
+                    placeholder="0.0"
+                    value={addAmountX}
+                    onChange={(e) => setAddAmountX(e.target.value)}
+                  />
+                  <span className="symbol">GAME</span>
+                </div>
+              </div>
+
+              <div className="input-group mb-4">
+                <label className="flex justify-between w-full">
+                  <span>WOOD Resource Amount</span>
+                  <span className="text-xs font-semibold text-muted">Balance: {safeFormatEther(balanceY)} WOOD</span>
+                </label>
+                <div className="input-with-symbol text-lg">
+                  <input
+                    type="number"
+                    placeholder="0.0"
+                    value={addAmountY}
+                    onChange={(e) => setAddAmountY(e.target.value)}
+                  />
+                  <span className="symbol">WOOD</span>
+                </div>
+              </div>
+
+              {hasInsufficientLiquidityBalanceX ? (
+                <button className="btn bg-red-600/20 text-red-400 border border-red-500/30 w-full py-3 mt-4 text-base font-bold shadow-lg cursor-not-allowed" disabled={true}>
+                  Insufficient GAME Balance (Have: {safeFormatEther(balanceX)})
+                </button>
+              ) : hasInsufficientLiquidityBalanceY ? (
+                <button className="btn bg-red-600/20 text-red-400 border border-red-500/30 w-full py-3 mt-4 text-base font-bold shadow-lg cursor-not-allowed" disabled={true}>
+                  Insufficient WOOD Balance (Have: {safeFormatEther(balanceY)})
+                </button>
+              ) : needsLiquidityApproveX ? (
+                <button
+                  className="btn bg-amber-600 hover:bg-amber-700 text-white w-full py-3 mt-4 text-base font-bold shadow-lg"
+                  onClick={() => handleApproveX(contracts.GameAMM, addAmountXWei)}
+                  disabled={isPending || isConfirming}
+                >
+                  {isPending || isConfirming ? 'Approving GAME...' : 'Approve GAME for Liquidity'}
+                </button>
+              ) : needsLiquidityApproveY ? (
+                <button
+                  className="btn bg-amber-600 hover:bg-amber-700 text-white w-full py-3 mt-4 text-base font-bold shadow-lg"
+                  onClick={() => handleApproveY(contracts.GameAMM, addAmountYWei)}
+                  disabled={isPending || isConfirming}
+                >
+                  {isPending || isConfirming ? 'Approving WOOD...' : 'Approve WOOD for Liquidity'}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary w-full py-3 mt-4 text-base"
+                  onClick={handleAddLiquidity}
+                  disabled={isPending || isConfirming || !addAmountX || !addAmountY}
+                >
+                  {isPending || isConfirming ? 'Adding Liquidity...' : 'Add Liquidity'}
+                </button>
+              )}
             </div>
-          </div>
+          )}
 
-          <button
-            className="btn btn-primary w-full py-3 mt-4 text-base"
-            onClick={handleAddLiquidity}
-            disabled={isPending || isConfirming || !addAmountX || !addAmountY}
-          >
-            {isPending || isConfirming ? 'Adding Liquidity...' : 'Add Liquidity'}
-          </button>
-        </div>
-      )}
+          {mode === 'remove-liquidity' && (
+            <div>
+              <h2 className="text-xl font-bold mb-1 flex items-center gap-2 text-foreground">
+                <MinusCircle size={20} className="text-muted" /> Burn LP Tokens
+              </h2>
+              <p className="text-muted text-sm mb-6">Redeem your Liquidity Pool shares back for the underlying token assets.</p>
 
-      {mode === 'remove-liquidity' && (
-        <div>
-          <h2 className="text-xl font-bold mb-1 flex items-center gap-2 text-foreground">
-            <MinusCircle size={20} className="text-muted" /> Burn LP Tokens
-          </h2>
-          <p className="text-muted text-sm mb-6">Redeem your Liquidity Pool shares back for the underlying token assets.</p>
+              <div className="input-group mb-4">
+                <label className="flex justify-between w-full">
+                  <span>LP Shares to Burn</span>
+                  <span className="text-xs font-semibold text-muted">Balance: {safeFormatEther(lpBalance)} GAMM-LP</span>
+                </label>
+                <div className="input-with-symbol text-lg">
+                  <input
+                    type="number"
+                    placeholder="0.0"
+                    value={removeShares}
+                    onChange={(e) => setRemoveShares(e.target.value)}
+                  />
+                  <span className="symbol">GAMM-LP</span>
+                </div>
+              </div>
 
-          <div className="input-group mb-4">
-            <label>LP Shares to Burn</label>
-            <div className="input-with-symbol text-lg">
-              <input
-                type="number"
-                placeholder="0.0"
-                value={removeShares}
-                onChange={(e) => setRemoveShares(e.target.value)}
-              />
-              <span className="symbol">GAMM-LP</span>
+              {hasInsufficientLpBalance ? (
+                <button className="btn bg-red-600/20 text-red-400 border border-red-500/30 w-full py-3 mt-4 text-base font-bold shadow-lg cursor-not-allowed" disabled={true}>
+                  Insufficient LP Shares (Have: {safeFormatEther(lpBalance)})
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary w-full py-3 mt-4 text-base"
+                  onClick={handleRemoveLiquidity}
+                  disabled={isPending || isConfirming || !removeShares}
+                >
+                  {isPending || isConfirming ? 'Burning LP Shares...' : 'Remove Liquidity'}
+                </button>
+              )}
             </div>
-          </div>
-
-          <button
-            className="btn btn-primary w-full py-3 mt-4 text-base"
-            onClick={handleRemoveLiquidity}
-            disabled={isPending || isConfirming || !removeShares}
-          >
-            {isPending || isConfirming ? 'Burning LP Shares...' : 'Remove Liquidity'}
-          </button>
-        </div>
+          )}
+        </>
       )}
 
       {error && <div className="mt-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-center text-sm font-semibold">{formatError(error)}</div>}
@@ -381,6 +644,53 @@ function VaultTab({ contracts }) {
 
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // 1. Fetch user allowance for GAME on RentalVault
+  const { data: allowanceVault } = useReadContract({
+    address: contracts.GameToken,
+    abi: GameTokenABI,
+    functionName: 'allowance',
+    args: address ? [address, contracts.RentalVault] : undefined,
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
+  });
+
+  // 2. Fetch if user has approved RentalVault for all GameItems (ERC-1155)
+  const { data: isApprovedForAll } = useReadContract({
+    address: contracts.GameItem,
+    abi: GameItemABI,
+    functionName: 'isApprovedForAll',
+    args: address ? [address, contracts.RentalVault] : undefined,
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
+  });
+
+  // Determine if approvals are needed
+  const stakeAmountWei = stakeAmount ? parseEther(stakeAmount) : 0n;
+  const needsVaultApprove = address && allowanceVault !== undefined && stakeAmountWei > 0n && allowanceVault < stakeAmountWei;
+  const needsNFTApprove = address && isApprovedForAll === false;
+
+  const handleApproveVault = () => {
+    writeContract({
+      address: contracts.GameToken,
+      abi: GameTokenABI,
+      functionName: 'approve',
+      args: [contracts.RentalVault, stakeAmountWei],
+    });
+  };
+
+  const handleApproveNFT = () => {
+    writeContract({
+      address: contracts.GameItem,
+      abi: GameItemABI,
+      functionName: 'setApprovalForAll',
+      args: [contracts.RentalVault, true],
+    });
+  };
 
   const handleDeposit = () => {
     if (!stakeAmount || !address) return;
@@ -471,13 +781,23 @@ function VaultTab({ contracts }) {
             </div>
           </div>
 
-          <button
-            className="btn btn-primary w-full py-3 mt-4 text-base"
-            onClick={handleDeposit}
-            disabled={isPending || isConfirming || !stakeAmount}
-          >
-            {isPending || isConfirming ? 'Processing Deposit...' : 'Confirm Staking'}
-          </button>
+          {needsVaultApprove ? (
+            <button
+              className="btn bg-amber-600 hover:bg-amber-700 text-white w-full py-3 mt-4 text-base font-bold shadow-lg"
+              onClick={handleApproveVault}
+              disabled={isPending || isConfirming}
+            >
+              {isPending || isConfirming ? 'Approving GAME...' : 'Approve GAME for Vault'}
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary w-full py-3 mt-4 text-base"
+              onClick={handleDeposit}
+              disabled={isPending || isConfirming || !stakeAmount}
+            >
+              {isPending || isConfirming ? 'Processing Deposit...' : 'Confirm Staking'}
+            </button>
+          )}
         </div>
       )}
 
@@ -531,13 +851,23 @@ function VaultTab({ contracts }) {
             </div>
           </div>
 
-          <button
-            className="btn btn-primary w-full py-3 mt-4 text-base"
-            onClick={handleDepositNFT}
-            disabled={isPending || isConfirming || !nftAmount}
-          >
-            {isPending || isConfirming ? 'Staking NFT...' : 'Deposit NFT'}
-          </button>
+          {needsNFTApprove ? (
+            <button
+              className="btn bg-amber-600 hover:bg-amber-700 text-white w-full py-3 mt-4 text-base font-bold shadow-lg"
+              onClick={handleApproveNFT}
+              disabled={isPending || isConfirming}
+            >
+              {isPending || isConfirming ? 'Approving NFTs...' : 'Approve NFTs for Vault'}
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary w-full py-3 mt-4 text-base"
+              onClick={handleDepositNFT}
+              disabled={isPending || isConfirming || !nftAmount}
+            >
+              {isPending || isConfirming ? 'Staking NFT...' : 'Deposit NFT'}
+            </button>
+          )}
         </div>
       )}
 
@@ -585,6 +915,7 @@ function GovernanceTab({ contracts }) {
   const [proposalCalldatas, setProposalCalldatas] = useState('');
   const [proposalDesc, setProposalDesc] = useState('');
   const [actionTab, setActionTab] = useState('proposals'); // 'proposals' | 'delegate' | 'create-proposal'
+  const [manualProposalId, setManualProposalId] = useState('');
 
   // Subgraph Integration State & Fetcher
   const [subgraphUrl, setSubgraphUrl] = useState(() => {
@@ -685,6 +1016,23 @@ function GovernanceTab({ contracts }) {
       functionName: 'castVote',
       args: [BigInt(proposalId), support],
     });
+  };
+
+  const handleManualVote = (support) => {
+    if (!manualProposalId) return;
+    try {
+      // Allow hex prefixed or regular base 10 proposal IDs
+      const cleanId = manualProposalId.trim();
+      const formattedId = BigInt(cleanId);
+      writeContract({
+        address: contracts.GameGovernor,
+        abi: GameGovernorABI,
+        functionName: 'castVote',
+        args: [formattedId, support],
+      });
+    } catch (err) {
+      alert("Invalid Proposal ID format. Make sure it is a valid hex hash or decimal integer.");
+    }
   };
 
   return (
@@ -804,7 +1152,10 @@ function GovernanceTab({ contracts }) {
               ))
             ) : (
               <>
-                {/* Fallback to Default Premium UI elements when no Subgraph is connected */}
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-xl text-sm leading-relaxed mb-4">
+                  <strong>⚠️ Demo Proposals Active:</strong> These cards represent offline mocked proposals because your custom subgraph is not currently configured/active. Clicking the vote buttons on these cards directly will call the contract with a mock ID of "12" and revert (which causes the high gas fee error). To vote on your actual live on-chain proposals, use the <strong>Manual Vote</strong> panel below.
+                </div>
+
                 <div className="p-5 border border-border rounded-xl hover:shadow-md transition-shadow bg-surface relative overflow-hidden">
                   <div className="absolute top-0 right-0 bg-accent text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl">
                     SIP-12
@@ -821,17 +1172,17 @@ function GovernanceTab({ contracts }) {
                   <div className="flex gap-3 border-t border-border pt-4">
                     <button
                       onClick={() => castVoteOnProposal("12", 1)}
-                      className="btn btn-primary flex-1 py-2.5 text-sm font-semibold"
-                      disabled={isPending || isConfirming}
+                      className="btn btn-primary flex-1 py-2.5 text-sm font-semibold opacity-60 cursor-not-allowed"
+                      disabled={true}
                     >
-                      Vote For
+                      Vote For (Mock)
                     </button>
                     <button
                       onClick={() => castVoteOnProposal("12", 0)}
-                      className="btn btn-outline flex-1 py-2.5 text-sm font-semibold"
-                      disabled={isPending || isConfirming}
+                      className="btn btn-outline flex-1 py-2.5 text-sm font-semibold opacity-60 cursor-not-allowed"
+                      disabled={true}
                     >
-                      Vote Against
+                      Vote Against (Mock)
                     </button>
                   </div>
                 </div>
@@ -860,6 +1211,44 @@ function GovernanceTab({ contracts }) {
                 </div>
               </>
             )}
+
+            {/* Manual Voting Fallback Form */}
+            <div className="mt-8 p-6 bg-surface border border-dashed border-border rounded-2xl relative overflow-hidden">
+              <h3 className="text-base font-bold text-foreground mb-1.5 flex items-center gap-2">
+                <Vote size={18} className="text-accent" /> Direct On-Chain Vote
+              </h3>
+              <p className="text-xs text-muted mb-5">
+                Pasting the actual 256-bit Proposal ID hash below allows you to interact directly with the <strong>GameGovernor</strong> smart contract on Arbitrum Sepolia, completely bypassing any Graph indexer delays!
+              </p>
+              <div className="flex flex-col gap-4">
+                <div className="input-group">
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5 block">Proposal ID (Decimal or Hex)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 0x37b868e22bf12e9f71398fc98b6363083aa9be91913b7d138f79e2a75af91744"
+                    value={manualProposalId}
+                    onChange={(e) => setManualProposalId(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-accent transition-colors font-mono"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleManualVote(1)}
+                    className="btn btn-primary flex-1 py-3 text-sm font-semibold"
+                    disabled={isPending || isConfirming || !manualProposalId}
+                  >
+                    Vote FOR (On-Chain)
+                  </button>
+                  <button
+                    onClick={() => handleManualVote(0)}
+                    className="btn btn-outline flex-1 py-3 text-sm font-semibold"
+                    disabled={isPending || isConfirming || !manualProposalId}
+                  >
+                    Vote AGAINST (On-Chain)
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1017,7 +1406,10 @@ function Dashboard({ itemsData, contracts }) {
     abi: GameTokenABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address }
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
   });
 
   // 2. Fetch Staked shares in Rental Vault
@@ -1026,7 +1418,10 @@ function Dashboard({ itemsData, contracts }) {
     abi: RentalVaultABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address }
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
   });
 
   // 3. Fetch active voting power
@@ -1035,7 +1430,10 @@ function Dashboard({ itemsData, contracts }) {
     abi: GameTokenABI,
     functionName: 'getVotes',
     args: address ? [address] : undefined,
-    query: { enabled: !!address }
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
   });
 
   // 4. Fetch current delegate address
@@ -1044,7 +1442,10 @@ function Dashboard({ itemsData, contracts }) {
     abi: GameTokenABI,
     functionName: 'delegates',
     args: address ? [address] : undefined,
-    query: { enabled: !!address }
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
   });
 
   // 5. Fetch reserve ratio / AMM liquidity details
@@ -1052,30 +1453,21 @@ function Dashboard({ itemsData, contracts }) {
     address: contracts.GameAMM,
     abi: GameAMMABI,
     functionName: 'reserveX',
-    query: { enabled: !!address }
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
   });
   const { data: reserveY } = useReadContract({
     address: contracts.GameAMM,
     abi: GameAMMABI,
     functionName: 'reserveY',
-    query: { enabled: !!address }
+    query: {
+      enabled: !!address,
+      refetchInterval: 3000
+    }
   });
 
-  // Safely format a BigInt token amount (18 decimals) to a display string
-  // without overflowing JS Number precision
-  function safeFormatEther(raw) {
-    if (!raw || raw === 0n) return "0.00";
-    try {
-      // Divide by 10^15 first to keep within safe integer range,
-      // then divide the remaining 10^3 as a float
-      const upper = raw / 1000000000000000n;
-      const display = Number(upper) / 1000;
-      if (!isFinite(display)) return "0.00";
-      return display.toLocaleString(undefined, { maximumFractionDigits: 2 });
-    } catch {
-      return "err";
-    }
-  }
 
   const totalNftsCount = itemsData
     ? itemsData.reduce((acc, curr) => {
@@ -1171,7 +1563,7 @@ function AppContent() {
     ] : undefined,
     query: {
       enabled: !!address,
-      refetchInterval: 10000 // refetch every 10 seconds
+      refetchInterval: 3000 // refetch every 3 seconds
     }
   });
 
